@@ -85,7 +85,7 @@ This server supports two ways of providing configuration:
 
 1.  Open your Claude Desktop configuration file:
     - **Windows:** `%APPDATA%\\Claude\\claude_desktop_config.json`
-    - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+    - **macOS:** `~/Library/Application\ Support/Claude/claude_desktop_config.json`
 2.  Add or merge the following within the `mcpServers` object. Provide your credentials in the `env` block:
 
     ```json
