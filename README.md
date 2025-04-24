@@ -72,3 +72,56 @@ Once the server is running (within the activated venv), you can interact with it
 - "Get the 15 minute chart for NASDAQ:AAPL"
 - "Show me the daily chart for BYBIT:BTCUSDT.P"
 - "Fetch TradingView chart image for COINBASE:ETHUSD on the 60 timeframe"
+
+## 🔌 Using with MCP Clients (Claude Desktop / Cursor)
+
+To use this server with MCP clients like Claude Desktop or Cursor, you need to configure them to run the `main.py` script using the Python interpreter **from the virtual environment you created**.
+
+**Important:**
+
+- Replace the placeholder paths below with the **absolute paths** on your system. You can often get the absolute path by navigating to the directory in your terminal and running `pwd` (print working directory).
+- Ensure you have followed the setup steps above, especially creating the `.env` file with your credentials in the `tradingview-chart-mcp` directory. The server reads credentials from this file when it starts.
+
+### Claude Desktop
+
+1.  Open your Claude Desktop configuration file:
+    - **Windows:** `%APPDATA%\\Claude\\claude_desktop_config.json`
+    - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+2.  Add or merge the following within the `mcpServers` object:
+
+    ```json
+    {
+      "mcpServers": {
+        "tradingview-chart-mcp": {
+          "command": "/absolute/path/to/your/tradingview-chart-mcp/venv/bin/python3",
+          "args": ["/absolute/path/to/your/tradingview-chart-mcp/main.py"],
+          "workingDirectory": "/absolute/path/to/your/tradingview-chart-mcp/"
+        }
+        // ... other servers if any ...
+      }
+    }
+    ```
+
+3.  Replace ALL three placeholder paths (`command`, `args`, and `workingDirectory`) with your actual absolute paths. The `workingDirectory` ensures the server starts in the correct project folder to find the `.env` file.
+4.  Restart Claude Desktop.
+
+### Cursor
+
+1.  Go to: `Settings -> Cursor Settings -> MCP -> Edit User MCP Config (~/.cursor/mcp.json)`.
+2.  Add or merge the following within the `mcpServers` object:
+
+    ```json
+    {
+      "mcpServers": {
+        "tradingview-chart-mcp": {
+          "command": "/absolute/path/to/your/tradingview-chart-mcp/venv/bin/python3",
+          "args": ["/absolute/path/to/your/tradingview-chart-mcp/main.py"],
+          "workingDirectory": "/absolute/path/to/your/tradingview-chart-mcp/"
+        }
+        // ... other servers if any ...
+      }
+    }
+    ```
+
+3.  Replace ALL three placeholder paths (`command`, `args`, and `workingDirectory`) with your actual absolute paths. The `workingDirectory` ensures the server starts in the correct project folder to find the `.env` file.
+4.  Restart Cursor.
