@@ -37,10 +37,11 @@ This MCP server provides tools to fetch TradingView chart images based on ticker
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Configure Environment:**
+4.  **Configure Environment (for Local Testing):**
     - Copy `.env.example` to `.env`.
     - Fill in your `TRADINGVIEW_SESSION_ID` and `TRADINGVIEW_SESSION_ID_SIGN` in the `.env` file. You can obtain these from your browser's cookies after logging into TradingView.
-    - Adjust optional scraper settings (`MCP_SCRAPER_HEADLESS`, `MCP_SCRAPER_WINDOW_WIDTH`, etc.) in `.env` if needed.
+    - This `.env` file is used when running the server directly (e.g., `python main.py`) for local testing.
+    - Adjust optional scraper settings (`MCP_SCRAPER_HEADLESS`, etc.) in `.env` if needed for local runs.
 5.  **Ensure ChromeDriver:** Make sure `chromedriver` is installed and accessible in your system's PATH, or configure the `tview-scraper.py` accordingly if it allows specifying a path.
 
 ## Running the Server
@@ -75,19 +76,17 @@ Once the server is running (within the activated venv), you can interact with it
 
 ## 🔌 Using with MCP Clients (Claude Desktop / Cursor)
 
-To use this server with MCP clients like Claude Desktop or Cursor, you need to configure them to run the `main.py` script using the Python interpreter **from the virtual environment you created** and provide your TradingView credentials via environment variables.
+This server supports two ways of providing configuration:
 
-**Important:**
-
-- Replace the placeholder paths below with the **absolute paths** on your system. You can often get the absolute path by navigating to the directory in your terminal and running `pwd` (print working directory).
-- Provide your actual `TRADINGVIEW_SESSION_ID` and `TRADINGVIEW_SESSION_ID_SIGN` in the `env` block.
+1.  **Via `.env` file (for local testing):** When running `python main.py` directly, the server will load credentials and settings from a `.env` file in the project directory.
+2.  **Via Client Environment Variables (Recommended for Integration):** When run by an MCP client (like Claude/Cursor), you should configure the client to inject the required environment variables directly. **These will override any values found in a `.env` file.**
 
 ### Claude Desktop
 
 1.  Open your Claude Desktop configuration file:
     - **Windows:** `%APPDATA%\\Claude\\claude_desktop_config.json`
     - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-2.  Add or merge the following within the `mcpServers` object:
+2.  Add or merge the following within the `mcpServers` object. Provide your credentials in the `env` block:
 
     ```json
     {
@@ -98,6 +97,8 @@ To use this server with MCP clients like Claude Desktop or Cursor, you need to c
           "env": {
             "TRADINGVIEW_SESSION_ID": "YOUR_SESSION_ID_HERE",
             "TRADINGVIEW_SESSION_ID_SIGN": "YOUR_SESSION_ID_SIGN_HERE"
+            // Optional: Add MCP_SCRAPER_* variables here too if needed
+            // "MCP_SCRAPER_HEADLESS": "False"
           }
         }
         // ... other servers if any ...
@@ -112,7 +113,7 @@ To use this server with MCP clients like Claude Desktop or Cursor, you need to c
 ### Cursor
 
 1.  Go to: `Settings -> Cursor Settings -> MCP -> Edit User MCP Config (~/.cursor/mcp.json)`.
-2.  Add or merge the following within the `mcpServers` object:
+2.  Add or merge the following within the `mcpServers` object. Provide your credentials in the `env` block:
 
     ```json
     {
@@ -123,6 +124,8 @@ To use this server with MCP clients like Claude Desktop or Cursor, you need to c
           "env": {
             "TRADINGVIEW_SESSION_ID": "YOUR_SESSION_ID_HERE",
             "TRADINGVIEW_SESSION_ID_SIGN": "YOUR_SESSION_ID_SIGN_HERE"
+            // Optional: Add MCP_SCRAPER_* variables here too if needed
+            // "MCP_SCRAPER_HEADLESS": "False"
           }
         }
         // ... other servers if any ...

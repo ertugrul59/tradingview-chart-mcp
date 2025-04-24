@@ -1,2 +1,3 @@
 mcp-sdk
 selenium
+python-dotenv
