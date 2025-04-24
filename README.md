@@ -75,12 +75,12 @@ Once the server is running (within the activated venv), you can interact with it
 
 ## 🔌 Using with MCP Clients (Claude Desktop / Cursor)
 
-To use this server with MCP clients like Claude Desktop or Cursor, you need to configure them to run the `main.py` script using the Python interpreter **from the virtual environment you created**.
+To use this server with MCP clients like Claude Desktop or Cursor, you need to configure them to run the `main.py` script using the Python interpreter **from the virtual environment you created** and provide your TradingView credentials via environment variables.
 
 **Important:**
 
 - Replace the placeholder paths below with the **absolute paths** on your system. You can often get the absolute path by navigating to the directory in your terminal and running `pwd` (print working directory).
-- Ensure you have followed the setup steps above, especially creating the `.env` file with your credentials in the `tradingview-chart-mcp` directory. The server reads credentials from this file when it starts.
+- Provide your actual `TRADINGVIEW_SESSION_ID` and `TRADINGVIEW_SESSION_ID_SIGN` in the `env` block.
 
 ### Claude Desktop
 
@@ -95,15 +95,19 @@ To use this server with MCP clients like Claude Desktop or Cursor, you need to c
         "tradingview-chart-mcp": {
           "command": "/absolute/path/to/your/tradingview-chart-mcp/venv/bin/python3",
           "args": ["/absolute/path/to/your/tradingview-chart-mcp/main.py"],
-          "workingDirectory": "/absolute/path/to/your/tradingview-chart-mcp/"
+          "env": {
+            "TRADINGVIEW_SESSION_ID": "YOUR_SESSION_ID_HERE",
+            "TRADINGVIEW_SESSION_ID_SIGN": "YOUR_SESSION_ID_SIGN_HERE"
+          }
         }
         // ... other servers if any ...
       }
     }
     ```
 
-3.  Replace ALL three placeholder paths (`command`, `args`, and `workingDirectory`) with your actual absolute paths. The `workingDirectory` ensures the server starts in the correct project folder to find the `.env` file.
-4.  Restart Claude Desktop.
+3.  Replace the placeholder paths (`command`, `args`) with your actual absolute paths.
+4.  Replace `YOUR_SESSION_ID_HERE` and `YOUR_SESSION_ID_SIGN_HERE` with your actual TradingView credentials.
+5.  Restart Claude Desktop.
 
 ### Cursor
 
@@ -116,12 +120,16 @@ To use this server with MCP clients like Claude Desktop or Cursor, you need to c
         "tradingview-chart-mcp": {
           "command": "/absolute/path/to/your/tradingview-chart-mcp/venv/bin/python3",
           "args": ["/absolute/path/to/your/tradingview-chart-mcp/main.py"],
-          "workingDirectory": "/absolute/path/to/your/tradingview-chart-mcp/"
+          "env": {
+            "TRADINGVIEW_SESSION_ID": "YOUR_SESSION_ID_HERE",
+            "TRADINGVIEW_SESSION_ID_SIGN": "YOUR_SESSION_ID_SIGN_HERE"
+          }
         }
         // ... other servers if any ...
       }
     }
     ```
 
-3.  Replace ALL three placeholder paths (`command`, `args`, and `workingDirectory`) with your actual absolute paths. The `workingDirectory` ensures the server starts in the correct project folder to find the `.env` file.
-4.  Restart Cursor.
+3.  Replace the placeholder paths (`command`, `args`) with your actual absolute paths.
+4.  Replace `YOUR_SESSION_ID_HERE` and `YOUR_SESSION_ID_SIGN_HERE` with your actual TradingView credentials.
+5.  Restart Cursor.

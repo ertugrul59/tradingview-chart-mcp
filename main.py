@@ -1,7 +1,6 @@
 import os
 import importlib.util
 import sys
-from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import ErrorData as Error # Import ErrorData and alias it as Error
 
@@ -30,16 +29,13 @@ except (FileNotFoundError, ImportError, AttributeError, Exception) as e:
     exit(1)
 # --- End Dynamic Load ---
 
-# Load environment variables from .env file
-load_dotenv()
-
 # --- Configuration ---
 TRADINGVIEW_SESSION_ID = os.getenv("TRADINGVIEW_SESSION_ID")
 TRADINGVIEW_SESSION_ID_SIGN = os.getenv("TRADINGVIEW_SESSION_ID_SIGN")
 
 # Check if required credentials are set
 if not TRADINGVIEW_SESSION_ID or not TRADINGVIEW_SESSION_ID_SIGN:
-    print("Error: TRADINGVIEW_SESSION_ID and TRADINGVIEW_SESSION_ID_SIGN must be set in the .env file.")
+    print("Error: TRADINGVIEW_SESSION_ID and TRADINGVIEW_SESSION_ID_SIGN must be set as environment variables (e.g., in your MCP client config).")
     exit(1)
 
 # Optional Scraper Configuration with defaults
