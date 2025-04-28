@@ -9,29 +9,29 @@ This MCP server provides tools to fetch TradingView chart images based on ticker
     # Navigate to the project directory
     cd tradingview-chart-mcp
     # Create the venv (use python3 if python is not linked)
-    python3 -m venv venv
+    python3 -m venv .venv
     ```
 2.  **Activate Virtual Environment:**
 
     - **macOS/Linux:**
       ```bash
-      source venv/bin/activate
+      source .venv/bin/activate
       ```
     - **Windows (Git Bash/WSL):**
       ```bash
-      source venv/Scripts/activate
+      source .venv/Scripts/activate
       ```
     - **Windows (Command Prompt):**
       ```bash
-      venv\Scripts\activate.bat
+      .venv\\Scripts\\activate.bat
       ```
     - **Windows (PowerShell):**
       ```bash
-      venv\Scripts\Activate.ps1
+      .venv\\Scripts\\Activate.ps1
       ```
       _(Note: You might need to adjust PowerShell execution policy: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`)_
 
-    Your terminal prompt should now indicate you are in the `(venv)`.
+    Your terminal prompt should now indicate you are in the `(.venv)`.
 
 3.  **Install Dependencies (inside venv):**
     ```bash
@@ -46,7 +46,7 @@ This MCP server provides tools to fetch TradingView chart images based on ticker
 
 ## Running the Server
 
-Ensure your virtual environment is activated (`source venv/bin/activate` or equivalent).
+Ensure your virtual environment is activated (`source .venv/bin/activate` or equivalent).
 
 ```bash
 python main.py
@@ -92,7 +92,7 @@ This server supports two ways of providing configuration:
     {
       "mcpServers": {
         "tradingview-chart-mcp": {
-          "command": "/absolute/path/to/your/tradingview-chart-mcp/venv/bin/python3",
+          "command": "/absolute/path/to/your/tradingview-chart-mcp/.venv/bin/python3",
           "args": ["/absolute/path/to/your/tradingview-chart-mcp/main.py"],
           "env": {
             "TRADINGVIEW_SESSION_ID": "YOUR_SESSION_ID_HERE",
@@ -119,7 +119,7 @@ This server supports two ways of providing configuration:
     {
       "mcpServers": {
         "tradingview-chart-mcp": {
-          "command": "/absolute/path/to/your/tradingview-chart-mcp/venv/bin/python3",
+          "command": "/absolute/path/to/your/tradingview-chart-mcp/.venv/bin/python3",
           "args": ["/absolute/path/to/your/tradingview-chart-mcp/main.py"],
           "env": {
             "TRADINGVIEW_SESSION_ID": "YOUR_SESSION_ID_HERE",

@@ -1,6 +1,7 @@
 import os
 import importlib.util
 import sys
+import asyncio # Added for await
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import ErrorData as Error # Import ErrorData and alias it as Error
@@ -65,7 +66,7 @@ mcp_server = FastMCP(
 
 # --- Tool Definition ---
 @mcp_server.tool() # Use the FastMCP instance as decorator
-def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) -> str: # Add Context
+async def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) -> str: # Make function async
     """
     Fetches the direct image URL for a TradingView chart snapshot.
 
@@ -80,14 +81,16 @@ def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) -> str
     Raises:
         Error: If the scraper fails or invalid input is provided.
     """
-    ctx.info(f"Attempting to get chart image for {ticker} interval {interval}")
+    await ctx.info(f"Attempting to get chart image for {ticker} interval {interval}") # Added await
     try:
         # Use the scraper as a context manager
+        # Note: Assuming TradingViewScraper itself and its methods used here
+        # (get_screenshot_link, convert_link_to_image_url) are synchronous.
+        # If they become async, they will need `await` too.
         with TradingViewScraper(
-            session_id=TRADINGVIEW_SESSION_ID,
-            session_id_sign=TRADINGVIEW_SESSION_ID_SIGN,
+            # Remove session_id and session_id_sign, they are read from env vars by the scraper
             headless=HEADLESS,
-            window_size=WINDOW_SIZE, # Pass tuple directly
+            window_size=f"{WINDOW_WIDTH},{WINDOW_HEIGHT}", # Pass as formatted string
             chart_page_id=CHART_PAGE_ID
         ) as scraper:
             screenshot_link = scraper.get_screenshot_link(ticker, interval)
@@ -96,33 +99,38 @@ def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) -> str
             image_url = scraper.convert_link_to_image_url(screenshot_link)
             if not image_url:
                  raise TradingViewScraperError("Failed to convert screenshot link to image URL.")
-            ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url}")
+            await ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url}") # Added await
             return image_url
     except TradingViewScraperError as e:
-        ctx.error(f"Scraper Error: {e}") # Log error via context
-        raise Error(message=f"Scraper Error: {e}") # Raise MCP Error (using ErrorData)
+        await ctx.error(f"Scraper Error: {e}") # Added await
+        # Use integer codes (e.g., 503 Service Unavailable for external service error)
+        raise Error(code=503, message=f"Scraper Error: {e}")
     except ValueError as e:
-        ctx.error(f"Input Error: {e}")
-        raise Error(message=f"Input Error: {e}") # Raise MCP Error (using ErrorData)
+        await ctx.error(f"Input Error: {e}") # Added await
+        # Use integer codes (e.g., 400 Bad Request for input error)
+        raise Error(code=400, message=f"Input Error: {e}")
     except Exception as e:
-        ctx.error(f"Unexpected error in get_tradingview_chart_image: {e}", exc_info=True) # Log traceback
-        raise Error(message="An unexpected error occurred while fetching the chart image.") # Raise MCP Error (using ErrorData)
+        await ctx.error(f"Unexpected error in get_tradingview_chart_image: {e}") # Added await, removed exc_info=True
+        # Use integer codes (e.g., 500 Internal Server Error)
+        raise Error(code=500, message="An unexpected error occurred while fetching the chart image.")
 
 
 # --- Prompt Definitions ---
 @mcp_server.prompt("Get the {interval} minute chart for {ticker}")
-def get_chart_prompt_minutes(ticker: str, interval: str, ctx: Context): # Added Context
-    ctx.info(f"Executing prompt: Get the {interval} minute chart for {ticker}")
-    return get_tradingview_chart_image(ticker=ticker, interval=interval, ctx=ctx)
+async def get_chart_prompt_minutes(ticker: str, interval: str, ctx: Context): # Make function async
+    await ctx.info(f"Executing prompt: Get the {interval} minute chart for {ticker}") # Added await
+    # Need to await the async tool function
+    return await get_tradingview_chart_image(ticker=ticker, interval=interval, ctx=ctx)
 
 @mcp_server.prompt("Show me the daily chart for {ticker}")
-def get_chart_prompt_daily(ticker: str, ctx: Context): # Added Context
-    ctx.info(f"Executing prompt: Show me the daily chart for {ticker}")
-    return get_tradingview_chart_image(ticker=ticker, interval='D', ctx=ctx)
+async def get_chart_prompt_daily(ticker: str, ctx: Context): # Make function async
+    await ctx.info(f"Executing prompt: Show me the daily chart for {ticker}") # Added await
+    # Need to await the async tool function
+    return await get_tradingview_chart_image(ticker=ticker, interval='D', ctx=ctx)
 
 @mcp_server.prompt("Fetch TradingView chart image for {ticker} on the {interval} timeframe")
-def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): # Added Context
-    ctx.info(f"Executing prompt: Fetch TradingView chart image for {ticker} on the {interval} timeframe")
+async def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): # Make function async
+    await ctx.info(f"Executing prompt: Fetch TradingView chart image for {ticker} on the {interval} timeframe") # Added await
     interval_map = {
         "daily": "D",
         "weekly": "W",
@@ -135,8 +143,9 @@ def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): # Adde
     }
     # Use provided interval directly if it doesn't match common names or is already a code
     mcp_interval = interval_map.get(interval.lower(), interval)
-    ctx.info(f"Mapped interval '{interval}' to '{mcp_interval}'")
-    return get_tradingview_chart_image(ticker=ticker, interval=mcp_interval, ctx=ctx)
+    await ctx.info(f"Mapped interval '{interval}' to '{mcp_interval}'") # Added await
+    # Need to await the async tool function
+    return await get_tradingview_chart_image(ticker=ticker, interval=mcp_interval, ctx=ctx)
 
 # --- Run the Server ---
 if __name__ == "__main__":
