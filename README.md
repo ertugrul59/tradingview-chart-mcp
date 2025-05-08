@@ -1,4 +1,5 @@
 # MCP Server - TradingView Chart Image Scraper
+[![smithery badge](https://smithery.ai/badge/@ertugrul59/tradingview-chart-mcp)](https://smithery.ai/server/@ertugrul59/tradingview-chart-mcp)
 
 This MCP server provides tools to fetch TradingView chart images based on ticker and interval.
 
@@ -136,3 +137,11 @@ This server supports two ways of providing configuration:
 3.  Replace the placeholder paths (`command`, `args`) with your actual absolute paths.
 4.  Replace `YOUR_SESSION_ID_HERE` and `YOUR_SESSION_ID_SIGN_HERE` with your actual TradingView credentials.
 5.  Restart Cursor.
+
+### Installing via Smithery
+
+To install TradingView Chart Image Scraper for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@ertugrul59/tradingview-chart-mcp):
+
+```bash
+npx -y @smithery/cli install @ertugrul59/tradingview-chart-mcp --client claude
+```
