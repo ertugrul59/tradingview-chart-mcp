@@ -1,0 +1,44 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - tradingviewSessionId
+      - tradingviewSessionIdSign
+    properties:
+      tradingviewSessionId:
+        type: string
+        description: TradingView session ID cookie value
+      tradingviewSessionIdSign:
+        type: string
+        description: TradingView session ID signature cookie value
+      mcpScraperHeadless:
+        type: boolean
+        default: true
+        description: Run scraper in headless mode
+      mcpScraperWindowWidth:
+        type: number
+        default: 1920
+        description: Browser window width
+      mcpScraperWindowHeight:
+        type: number
+        default: 1080
+        description: Browser window height
+      mcpScraperChartPageId:
+        type: string
+        default: ""
+        description: Optional custom chart page ID
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'python', args: ['main.py'], env: { TRADINGVIEW_SESSION_ID: config.tradingviewSessionId, TRADINGVIEW_SESSION_ID_SIGN: config.tradingviewSessionIdSign, MCP_SCRAPER_HEADLESS: config.mcpScraperHeadless.toString(), MCP_SCRAPER_WINDOW_WIDTH: config.mcpScraperWindowWidth.toString(), MCP_SCRAPER_WINDOW_HEIGHT: config.mcpScraperWindowHeight.toString(), MCP_SCRAPER_CHART_PAGE_ID: config.mcpScraperChartPageId } })
+  exampleConfig:
+    tradingviewSessionId: abc123sessionid
+    tradingviewSessionIdSign: def456signature
+    mcpScraperHeadless: true
+    mcpScraperWindowWidth: 1920
+    mcpScraperWindowHeight: 1080
+    mcpScraperChartPageId: ""
