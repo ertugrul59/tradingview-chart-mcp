@@ -103,16 +103,13 @@ async def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) 
             return image_url
     except TradingViewScraperError as e:
         await ctx.error(f"Scraper Error: {e}") # Added await
-        # Use integer codes (e.g., 503 Service Unavailable for external service error)
-        raise Error(code=503, message=f"Scraper Error: {e}")
+        raise Exception(f"Scraper Error: {e}") # Simplified exception
     except ValueError as e:
         await ctx.error(f"Input Error: {e}") # Added await
-        # Use integer codes (e.g., 400 Bad Request for input error)
-        raise Error(code=400, message=f"Input Error: {e}")
+        raise Exception(f"Input Error: {e}") # Simplified exception
     except Exception as e:
         await ctx.error(f"Unexpected error in get_tradingview_chart_image: {e}") # Added await, removed exc_info=True
-        # Use integer codes (e.g., 500 Internal Server Error)
-        raise Error(code=500, message="An unexpected error occurred while fetching the chart image.")
+        raise Exception(f"Unexpected error: {e}") # Simplified exception
 
 
 # --- Prompt Definitions ---
