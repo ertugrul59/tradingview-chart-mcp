@@ -1,10 +1,13 @@
 import os
 import importlib.util
 import sys
-import asyncio # Added for await
+import logging
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import ErrorData as Error # Import ErrorData and alias it as Error
+
+
+logger = logging.getLogger(__name__)
 
 # --- Dynamically load tview_scraper.py ---
 scraper_module = None
@@ -146,9 +149,11 @@ async def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): 
 
 # --- Run the Server ---
 if __name__ == "__main__":
-    print("Starting TradingView Chart Image MCP Server...")
-    print(f" - Headless: {HEADLESS}")
-    print(f" - Window Size: {WINDOW_SIZE}")
-    print(f" - Chart Page ID: {CHART_PAGE_ID}")
+    logger.info("Starting TradingView Chart Image MCP Server...")
+    logger.info(f" - Headless: {HEADLESS}")
+    logger.info(f" - Window Size: {WINDOW_SIZE}")
+    logger.info(f" - Chart Page ID: {CHART_PAGE_ID}")
+    logger.info(f" - TRADINGVIEW_SESSION_ID: {TRADINGVIEW_SESSION_ID}")
+    logger.info(f" - TRADINGVIEW_SESSION_ID_SIGN: {TRADINGVIEW_SESSION_ID_SIGN}")
     # Run using stdio transport, similar to the weather example
     mcp_server.run(transport='stdio')
