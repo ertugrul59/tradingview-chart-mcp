@@ -149,6 +149,7 @@ async def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): 
 
 # --- Run the Server ---
 if __name__ == "__main__":
+    # if sys.stdout.isatty():
     logger.info("Starting TradingView Chart Image MCP Server...")
     logger.info(f" - Headless: {HEADLESS}")
     logger.info(f" - Window Size: {WINDOW_SIZE}")
