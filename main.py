@@ -150,11 +150,12 @@ async def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): 
 # --- Run the Server ---
 if __name__ == "__main__":
     # if sys.stdout.isatty():
-    logger.info("Starting TradingView Chart Image MCP Server...")
-    logger.info(f" - Headless: {HEADLESS}")
-    logger.info(f" - Window Size: {WINDOW_SIZE}")
-    logger.info(f" - Chart Page ID: {CHART_PAGE_ID}")
-    logger.info(f" - TRADINGVIEW_SESSION_ID: {TRADINGVIEW_SESSION_ID}")
+    logger.info("🚀 Starting TradingView Chart Image MCP Server...")
+    logger.info(f"⚙️ Configuration:")
+    logger.info(f"   - Headless: {HEADLESS}")
+    logger.info(f"   - Window Size: {WINDOW_SIZE}")
+    logger.info(f"   - Chart Page ID: {CHART_PAGE_ID}")
+    logger.info(f"   - TRADINGVIEW_SESSION_ID: {TRADINGVIEW_SESSION_ID}")
     logger.info(f" - TRADINGVIEW_SESSION_ID_SIGN: {TRADINGVIEW_SESSION_ID_SIGN}")
     # Run using stdio transport, similar to the weather example
     mcp_server.run(transport='stdio')
