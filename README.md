@@ -136,3 +136,43 @@ This server supports two ways of providing configuration:
 3.  Replace the placeholder paths (`command`, `args`) with your actual absolute paths.
 4.  Replace `YOUR_SESSION_ID_HERE` and `YOUR_SESSION_ID_SIGN_HERE` with your actual TradingView credentials.
 5.  Restart Cursor.
+
+## Configuration
+
+### Environment Variables
+
+The following environment variables can be set to configure the scraper:
+
+- `TRADINGVIEW_SESSION_ID`: Your TradingView session ID (required)
+- `TRADINGVIEW_SESSION_ID_SIGN`: Your TradingView session ID signature (required)
+- `MCP_SCRAPER_HEADLESS`: Run browser in headless mode (default: `True`)
+- `MCP_SCRAPER_WINDOW_WIDTH`: Browser window width (default: `1920`)
+- `MCP_SCRAPER_WINDOW_HEIGHT`: Browser window height (default: `1080`)
+- `MCP_SCRAPER_USE_SAVE_SHORTCUT`: Use clipboard image capture instead of screenshot links (default: `True`)
+- `MCP_SCRAPER_CHART_PAGE_ID`: Custom chart page ID (optional)
+
+### Save Shortcut Feature
+
+The `MCP_SCRAPER_USE_SAVE_SHORTCUT` feature allows you to capture chart images directly to the clipboard as base64 data URLs instead of getting screenshot links. This eliminates the need to download images from URLs.
+
+**Benefits:**
+
+- Faster chart capture (no HTTP requests needed)
+- More reliable (no dependency on TradingView's CDN)
+- Works offline once the chart is loaded
+- Direct base64 data URLs for immediate use
+
+**How it works:**
+
+- When enabled (`True`): Uses `Shift+Ctrl+S` (or `Shift+Cmd+S` on Mac) to capture chart image directly to clipboard
+- When disabled (`False`): Uses traditional `Alt+S` to get screenshot links, then converts to image URLs
+
+**Configuration:**
+
+```bash
+# Enable clipboard image capture (DEFAULT)
+MCP_SCRAPER_USE_SAVE_SHORTCUT=True
+
+# Disable and use traditional screenshot links
+MCP_SCRAPER_USE_SAVE_SHORTCUT=False
+```

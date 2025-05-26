@@ -53,6 +53,7 @@ if not TRADINGVIEW_SESSION_ID or not TRADINGVIEW_SESSION_ID_SIGN:
 HEADLESS = os.getenv("MCP_SCRAPER_HEADLESS", "True").lower() == "true"
 WINDOW_WIDTH = int(os.getenv("MCP_SCRAPER_WINDOW_WIDTH", "1920"))
 WINDOW_HEIGHT = int(os.getenv("MCP_SCRAPER_WINDOW_HEIGHT", "1080"))
+USE_SAVE_SHORTCUT = os.getenv("MCP_SCRAPER_USE_SAVE_SHORTCUT", "True").lower() == "true"
 # Use default chart page ID from scraper if env var is empty or not set
 CHART_PAGE_ID_ENV = os.getenv("MCP_SCRAPER_CHART_PAGE_ID", "")
 CHART_PAGE_ID = CHART_PAGE_ID_ENV if CHART_PAGE_ID_ENV else TradingViewScraper.DEFAULT_CHART_PAGE_ID
@@ -94,16 +95,26 @@ async def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) 
             # Remove session_id and session_id_sign, they are read from env vars by the scraper
             headless=HEADLESS,
             window_size=f"{WINDOW_WIDTH},{WINDOW_HEIGHT}", # Pass as formatted string
-            chart_page_id=CHART_PAGE_ID
+            chart_page_id=CHART_PAGE_ID,
+            use_save_shortcut=USE_SAVE_SHORTCUT
         ) as scraper:
-            screenshot_link = scraper.get_screenshot_link(ticker, interval)
-            if not screenshot_link:
-                 raise TradingViewScraperError("Scraper did not return a screenshot link from clipboard.")
-            image_url = scraper.convert_link_to_image_url(screenshot_link)
-            if not image_url:
-                 raise TradingViewScraperError("Failed to convert screenshot link to image URL.")
-            await ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url}") # Added await
-            return image_url
+            if USE_SAVE_SHORTCUT:
+                # Use the new direct image capture method
+                image_url = scraper.get_chart_image_url(ticker, interval)
+                if not image_url:
+                    raise TradingViewScraperError("Scraper did not return an image URL.")
+                await ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url[:100]}{'...' if len(image_url) > 100 else ''}")
+                return image_url
+            else:
+                # Use the traditional screenshot link method
+                screenshot_link = scraper.get_screenshot_link(ticker, interval)
+                if not screenshot_link:
+                     raise TradingViewScraperError("Scraper did not return a screenshot link from clipboard.")
+                image_url = scraper.convert_link_to_image_url(screenshot_link)
+                if not image_url:
+                     raise TradingViewScraperError("Failed to convert screenshot link to image URL.")
+                await ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url[:100]}{'...' if len(image_url) > 100 else ''}")
+                return image_url
     except TradingViewScraperError as e:
         await ctx.error(f"Scraper Error: {e}") # Added await
         raise Exception(f"Scraper Error: {e}") # Simplified exception
@@ -154,6 +165,7 @@ if __name__ == "__main__":
     logger.info(f"⚙️ Configuration:")
     logger.info(f"   - Headless: {HEADLESS}")
     logger.info(f"   - Window Size: {WINDOW_SIZE}")
+    logger.info(f"   - Use Save Shortcut: {USE_SAVE_SHORTCUT}")
     logger.info(f"   - Chart Page ID: {CHART_PAGE_ID}")
     logger.info(f"   - TRADINGVIEW_SESSION_ID: {TRADINGVIEW_SESSION_ID}")
     logger.info(f" - TRADINGVIEW_SESSION_ID_SIGN: {TRADINGVIEW_SESSION_ID_SIGN}")
