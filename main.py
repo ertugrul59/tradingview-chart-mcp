@@ -166,8 +166,8 @@ if __name__ == "__main__":
     logger.info(f"   - Headless: {HEADLESS}")
     logger.info(f"   - Window Size: {WINDOW_SIZE}")
     logger.info(f"   - Use Save Shortcut: {USE_SAVE_SHORTCUT}")
-    logger.info(f"   - Chart Page ID: {CHART_PAGE_ID}")
-    logger.info(f"   - TRADINGVIEW_SESSION_ID: {TRADINGVIEW_SESSION_ID}")
-    logger.info(f" - TRADINGVIEW_SESSION_ID_SIGN: {TRADINGVIEW_SESSION_ID_SIGN}")
-    # Run using stdio transport, similar to the weather example
+    # logger.info(f"   - Chart Page ID: {CHART_PAGE_ID}")
+    # logger.info(f"   - TRADINGVIEW_SESSION_ID: {TRADINGVIEW_SESSION_ID}")
+    # logger.info(f" - TRADINGVIEW_SESSION_ID_SIGN: {TRADINGVIEW_SESSION_ID_SIGN}")
+
     mcp_server.run(transport='stdio')
