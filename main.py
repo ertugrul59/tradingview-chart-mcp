@@ -160,14 +160,11 @@ async def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): 
 
 # --- Run the Server ---
 if __name__ == "__main__":
-    # if sys.stdout.isatty():
-    logger.info("🚀 Starting TradingView Chart Image MCP Server...")
-    logger.info(f"⚙️ Configuration:")
-    logger.info(f"   - Headless: {HEADLESS}")
-    logger.info(f"   - Window Size: {WINDOW_SIZE}")
-    logger.info(f"   - Use Save Shortcut: {USE_SAVE_SHORTCUT}")
-    # logger.info(f"   - Chart Page ID: {CHART_PAGE_ID}")
-    # logger.info(f"   - TRADINGVIEW_SESSION_ID: {TRADINGVIEW_SESSION_ID}")
-    # logger.info(f" - TRADINGVIEW_SESSION_ID_SIGN: {TRADINGVIEW_SESSION_ID_SIGN}")
-
+    if os.getenv("MCP_DEBUG_STARTUP", "false").lower() == "true":
+        logger.info("🚀 Starting TradingView Chart Image MCP Server...")
+        logger.info(f"⚙️ Configuration:")
+        logger.info(f"   - Headless: {HEADLESS}")
+        logger.info(f"   - Window Size: {WINDOW_SIZE}")
+        logger.info(f"   - Use Save Shortcut: {USE_SAVE_SHORTCUT}")
+    # Run the server
     mcp_server.run(transport='stdio')
