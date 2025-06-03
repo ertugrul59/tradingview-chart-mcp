@@ -2,12 +2,50 @@ import os
 import importlib.util
 import sys
 import logging
+import argparse
+from datetime import datetime
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import ErrorData as Error # Import ErrorData and alias it as Error
 
+# Add optional file logging without changing existing behavior
+def setup_optional_file_logging():
+    """Add file logging if --log-dir argument is provided, without affecting existing logging."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--log-dir', type=str, help='Directory for additional log files')
+    parser.add_argument('--log-level', type=str, default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+                       help='Logging level')
+    
+    # Parse known args to avoid conflicts with other arguments
+    known_args, _ = parser.parse_known_args()
+    
+    # Get the module logger
+    module_logger = logging.getLogger(__name__)
+    
+    if known_args.log_dir:
+        # Create log directory if it doesn't exist
+        os.makedirs(known_args.log_dir, exist_ok=True)
+        
+        # Set up file handler with timestamp
+        log_file = os.path.join(known_args.log_dir, 'tradingview_mcp_server.log')
+        
+        # Configure file logging
+        file_handler = logging.FileHandler(log_file)
+        file_formatter = logging.Formatter(
+            '[%(asctime)s] [%(levelname)s] %(name)s - %(message)s'
+        )
+        file_handler.setFormatter(file_formatter)
+        file_handler.setLevel(getattr(logging, known_args.log_level))
+        
+        # Add file handler to the module logger
+        module_logger.addHandler(file_handler)
+        
+        print(f"[LOG_INIT] Logging to file: {log_file} at level {known_args.log_level}")
+    
+    return module_logger
 
-logger = logging.getLogger(__name__)
+# Call logging setup and get the logger
+logger = setup_optional_file_logging()
 
 # --- Dynamically load tview_scraper.py ---
 scraper_module = None
