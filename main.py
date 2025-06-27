@@ -1,114 +1,91 @@
 import os
-import importlib.util
 import sys
 import logging
 import argparse
-from datetime import datetime
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP, Context
-from mcp.types import ErrorData as Error # Import ErrorData and alias it as Error
+from mcp.types import ErrorData as Error
 
-# Add optional file logging without changing existing behavior
-def setup_optional_file_logging():
-    """Add file logging if --log-dir argument is provided, without affecting existing logging."""
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('--log-dir', type=str, help='Directory for additional log files')
-    parser.add_argument('--log-level', type=str, default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-                       help='Logging level')
+# Import scraper components directly
+from tview_scraper import TradingViewScraper, TradingViewScraperError
+
+def setup_logging(log_dir=None, log_level='INFO'):
+    """Configure logging for the TradingView MCP server."""
+    logger = logging.getLogger(__name__)
     
-    # Parse known args to avoid conflicts with other arguments
-    known_args, _ = parser.parse_known_args()
-    
-    # Get the module logger
-    module_logger = logging.getLogger(__name__)
-    
-    if known_args.log_dir:
-        # Create log directory if it doesn't exist
-        os.makedirs(known_args.log_dir, exist_ok=True)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, 'tradingview_mcp_server.log')
         
-        # Set up file handler with timestamp
-        log_file = os.path.join(known_args.log_dir, 'tradingview_mcp_server.log')
-        
-        # Configure file logging
         file_handler = logging.FileHandler(log_file)
-        file_formatter = logging.Formatter(
+        file_handler.setFormatter(logging.Formatter(
             '[%(asctime)s] [%(levelname)s] %(name)s - %(message)s'
-        )
-        file_handler.setFormatter(file_formatter)
-        file_handler.setLevel(getattr(logging, known_args.log_level))
-        
-        # Add file handler to the module logger
-        module_logger.addHandler(file_handler)
-        
-        print(f"[LOG_INIT] Logging to file: {log_file} at level {known_args.log_level}")
+        ))
+        file_handler.setLevel(getattr(logging, log_level))
+        logger.addHandler(file_handler)
+        print(f"[LOG_INIT] Logging to file: {log_file} at level {log_level}")
     
-    return module_logger
+    return logger
 
-# Call logging setup and get the logger
-logger = setup_optional_file_logging()
+def validate_environment():
+    """Validate required environment variables."""
+    session_id = os.getenv("TRADINGVIEW_SESSION_ID")
+    session_id_sign = os.getenv("TRADINGVIEW_SESSION_ID_SIGN")
+    
+    if not session_id or not session_id_sign:
+        print("Error: TRADINGVIEW_SESSION_ID and TRADINGVIEW_SESSION_ID_SIGN must be set.")
+        print("       Provide them either via environment variables (e.g., in MCP client config)")
+        print("       or in a .env file in the project directory for local execution.")
+        sys.exit(1)
+    
+    return session_id, session_id_sign
 
-# --- Dynamically load tview_scraper.py ---
-scraper_module = None
-TradingViewScraper = None
-TradingViewScraperError = None
+def get_scraper_config():
+    """Get scraper configuration from environment variables."""
+    return {
+        'headless': os.getenv("MCP_SCRAPER_HEADLESS", "True").lower() == "true",
+        'window_width': int(os.getenv("MCP_SCRAPER_WINDOW_WIDTH", "1920")),
+        'window_height': int(os.getenv("MCP_SCRAPER_WINDOW_HEIGHT", "1080")),
+        'use_save_shortcut': os.getenv("MCP_SCRAPER_USE_SAVE_SHORTCUT", "True").lower() == "true",
+        'chart_page_id': os.getenv("MCP_SCRAPER_CHART_PAGE_ID", "")
+    }
 
-try:
-    scraper_path = os.path.join(os.path.dirname(__file__), 'tview-scraper.py')
-    if not os.path.exists(scraper_path):
-        raise FileNotFoundError("tview-scraper.py not found in the same directory as main.py")
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="TradingView Chart MCP Server")
+    parser.add_argument("--transport", choices=["stdio", "streamable-http"], 
+                       default="stdio", help="Transport mode")
+    parser.add_argument("--port", type=int, default=8003, help="Port for HTTP transport")
+    parser.add_argument("--host", default="localhost", help="Host for HTTP transport")
+    parser.add_argument("--log-dir", type=str, help="Directory for log files")
+    parser.add_argument("--log-level", type=str, default="INFO", 
+                       choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], help="Logging level")
+    return parser.parse_args()
 
-    spec = importlib.util.spec_from_file_location("tview_scraper", scraper_path)
-    if spec and spec.loader:
-        scraper_module = importlib.util.module_from_spec(spec)
-        sys.modules["tview_scraper"] = scraper_module
-        spec.loader.exec_module(scraper_module)
-        TradingViewScraper = getattr(scraper_module, 'TradingViewScraper')
-        TradingViewScraperError = getattr(scraper_module, 'TradingViewScraperError')
-        print("Successfully loaded tview_scraper module.")
-    else:
-        raise ImportError("Could not create module spec for tview_scraper.py")
-except (FileNotFoundError, ImportError, AttributeError, Exception) as e:
-    print(f"Fatal Error: Could not load tview_scraper module: {e}")
-    exit(1)
-# --- End Dynamic Load ---
+# Parse arguments first so we can use them everywhere
+args = parse_arguments()
 
-# Load .env file if it exists. Environment variables set directly (e.g., by MCP client) take precedence.
+# Initialize components with parsed arguments
+logger = setup_logging(args.log_dir, args.log_level)
 load_dotenv()
 
-# --- Configuration ---
-# Read from environment variables (which may have been loaded from .env or set directly)
-TRADINGVIEW_SESSION_ID = os.getenv("TRADINGVIEW_SESSION_ID")
-TRADINGVIEW_SESSION_ID_SIGN = os.getenv("TRADINGVIEW_SESSION_ID_SIGN")
+# Validate environment and get credentials  
+TRADINGVIEW_SESSION_ID, TRADINGVIEW_SESSION_ID_SIGN = validate_environment()
 
-# Check if required credentials are set (via environment variables or .env file)
-if not TRADINGVIEW_SESSION_ID or not TRADINGVIEW_SESSION_ID_SIGN:
-    print("Error: TRADINGVIEW_SESSION_ID and TRADINGVIEW_SESSION_ID_SIGN must be set.")
-    print("       Provide them either via environment variables (e.g., in MCP client config)")
-    print("       or in a .env file in the project directory for local execution.")
-    exit(1)
-
-# Optional Scraper Configuration with defaults
-HEADLESS = os.getenv("MCP_SCRAPER_HEADLESS", "True").lower() == "true"
-WINDOW_WIDTH = int(os.getenv("MCP_SCRAPER_WINDOW_WIDTH", "1920"))
-WINDOW_HEIGHT = int(os.getenv("MCP_SCRAPER_WINDOW_HEIGHT", "1080"))
-USE_SAVE_SHORTCUT = os.getenv("MCP_SCRAPER_USE_SAVE_SHORTCUT", "True").lower() == "true"
-# Use default chart page ID from scraper if env var is empty or not set
-CHART_PAGE_ID_ENV = os.getenv("MCP_SCRAPER_CHART_PAGE_ID", "")
-CHART_PAGE_ID = CHART_PAGE_ID_ENV if CHART_PAGE_ID_ENV else TradingViewScraper.DEFAULT_CHART_PAGE_ID
-
+# Get scraper configuration
+config = get_scraper_config()
+HEADLESS = config['headless']
+WINDOW_WIDTH = config['window_width'] 
+WINDOW_HEIGHT = config['window_height']
+USE_SAVE_SHORTCUT = config['use_save_shortcut']
+CHART_PAGE_ID = config['chart_page_id'] if config['chart_page_id'] else TradingViewScraper.DEFAULT_CHART_PAGE_ID
 WINDOW_SIZE = (WINDOW_WIDTH, WINDOW_HEIGHT)
 
-# --- MCP Server Definition (using FastMCP) ---
-# Renamed variable to avoid conflict with potential future 'mcp' module imports
-mcp_server = FastMCP(
-    "TradingView Chart Image",
-    # lifespan=app_lifespan, # Add lifespan management if needed
-    # dependencies=["selenium", "python-dotenv"] # Optional
-)
+# Create MCP server
+mcp_server = FastMCP("TradingView Chart Image")
 
-# --- Tool Definition ---
-@mcp_server.tool() # Use the FastMCP instance as decorator
-async def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) -> str: # Make function async
+@mcp_server.tool()
+async def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) -> str:
     """
     Fetches the direct image URL for a TradingView chart snapshot.
 
@@ -123,86 +100,77 @@ async def get_tradingview_chart_image(ticker: str, interval: str, ctx: Context) 
     Raises:
         Error: If the scraper fails or invalid input is provided.
     """
-    await ctx.info(f"Attempting to get chart image for {ticker} interval {interval}") # Added await
+    await ctx.info(f"Attempting to get chart image for {ticker} interval {interval}")
+    
     try:
-        # Use the scraper as a context manager
-        # Note: Assuming TradingViewScraper itself and its methods used here
-        # (get_screenshot_link, convert_link_to_image_url) are synchronous.
-        # If they become async, they will need `await` too.
         with TradingViewScraper(
-            # Remove session_id and session_id_sign, they are read from env vars by the scraper
             headless=HEADLESS,
-            window_size=f"{WINDOW_WIDTH},{WINDOW_HEIGHT}", # Pass as formatted string
+            window_size=f"{WINDOW_WIDTH},{WINDOW_HEIGHT}",
             chart_page_id=CHART_PAGE_ID,
             use_save_shortcut=USE_SAVE_SHORTCUT
         ) as scraper:
             if USE_SAVE_SHORTCUT:
-                # Use the new direct image capture method
                 image_url = scraper.get_chart_image_url(ticker, interval)
                 if not image_url:
                     raise TradingViewScraperError("Scraper did not return an image URL.")
-                await ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url[:100]}{'...' if len(image_url) > 100 else ''}")
-                return image_url
             else:
-                # Use the traditional screenshot link method
                 screenshot_link = scraper.get_screenshot_link(ticker, interval)
                 if not screenshot_link:
-                     raise TradingViewScraperError("Scraper did not return a screenshot link from clipboard.")
+                    raise TradingViewScraperError("Scraper did not return a screenshot link from clipboard.")
                 image_url = scraper.convert_link_to_image_url(screenshot_link)
                 if not image_url:
-                     raise TradingViewScraperError("Failed to convert screenshot link to image URL.")
-                await ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url[:100]}{'...' if len(image_url) > 100 else ''}")
-                return image_url
+                    raise TradingViewScraperError("Failed to convert screenshot link to image URL.")
+            
+            await ctx.info(f"Successfully obtained image URL for {ticker} ({interval}): {image_url[:100]}{'...' if len(image_url) > 100 else ''}")
+            return image_url
+            
     except TradingViewScraperError as e:
-        await ctx.error(f"Scraper Error: {e}") # Added await
-        raise Exception(f"Scraper Error: {e}") # Simplified exception
+        await ctx.error(f"Scraper Error: {e}")
+        raise Exception(f"Scraper Error: {e}")
     except ValueError as e:
-        await ctx.error(f"Input Error: {e}") # Added await
-        raise Exception(f"Input Error: {e}") # Simplified exception
+        await ctx.error(f"Input Error: {e}")
+        raise Exception(f"Input Error: {e}")
     except Exception as e:
-        await ctx.error(f"Unexpected error in get_tradingview_chart_image: {e}") # Added await, removed exc_info=True
-        raise Exception(f"Unexpected error: {e}") # Simplified exception
+        await ctx.error(f"Unexpected error in get_tradingview_chart_image: {e}")
+        raise Exception(f"Unexpected error: {e}")
 
-
-# --- Prompt Definitions ---
 @mcp_server.prompt("Get the {interval} minute chart for {ticker}")
-async def get_chart_prompt_minutes(ticker: str, interval: str, ctx: Context): # Make function async
-    await ctx.info(f"Executing prompt: Get the {interval} minute chart for {ticker}") # Added await
-    # Need to await the async tool function
+async def get_chart_prompt_minutes(ticker: str, interval: str, ctx: Context):
+    await ctx.info(f"Executing prompt: Get the {interval} minute chart for {ticker}")
     return await get_tradingview_chart_image(ticker=ticker, interval=interval, ctx=ctx)
 
 @mcp_server.prompt("Show me the daily chart for {ticker}")
-async def get_chart_prompt_daily(ticker: str, ctx: Context): # Make function async
-    await ctx.info(f"Executing prompt: Show me the daily chart for {ticker}") # Added await
-    # Need to await the async tool function
+async def get_chart_prompt_daily(ticker: str, ctx: Context):
+    await ctx.info(f"Executing prompt: Show me the daily chart for {ticker}")
     return await get_tradingview_chart_image(ticker=ticker, interval='D', ctx=ctx)
 
 @mcp_server.prompt("Fetch TradingView chart image for {ticker} on the {interval} timeframe")
-async def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context): # Make function async
-    await ctx.info(f"Executing prompt: Fetch TradingView chart image for {ticker} on the {interval} timeframe") # Added await
+async def get_chart_prompt_timeframe(ticker: str, interval: str, ctx: Context):
+    await ctx.info(f"Executing prompt: Fetch TradingView chart image for {ticker} on the {interval} timeframe")
     interval_map = {
-        "daily": "D",
-        "weekly": "W",
-        "monthly": "M", # Assuming 'M' is supported, adjust if needed
-        "1 minute": "1",
-        "5 minute": "5",
-        "15 minute": "15",
-        "1 hour": "60", # Assuming '60' is supported, adjust if needed (e.g., '1H')
-        "4 hour": "240", # Assuming '240' is supported, adjust if needed (e.g., '4H')
+        "daily": "D", "weekly": "W", "monthly": "M",
+        "1 minute": "1", "5 minute": "5", "15 minute": "15",
+        "1 hour": "60", "4 hour": "240",
     }
-    # Use provided interval directly if it doesn't match common names or is already a code
     mcp_interval = interval_map.get(interval.lower(), interval)
-    await ctx.info(f"Mapped interval '{interval}' to '{mcp_interval}'") # Added await
-    # Need to await the async tool function
+    await ctx.info(f"Mapped interval '{interval}' to '{mcp_interval}'")
     return await get_tradingview_chart_image(ticker=ticker, interval=mcp_interval, ctx=ctx)
 
-# --- Run the Server ---
 if __name__ == "__main__":
     if os.getenv("MCP_DEBUG_STARTUP", "false").lower() == "true":
         logger.info("🚀 Starting TradingView Chart Image MCP Server...")
         logger.info(f"⚙️ Configuration:")
+        logger.info(f"   - Transport mode: {args.transport}")
         logger.info(f"   - Headless: {HEADLESS}")
         logger.info(f"   - Window Size: {WINDOW_SIZE}")
         logger.info(f"   - Use Save Shortcut: {USE_SAVE_SHORTCUT}")
-    # Run the server
-    mcp_server.run(transport='stdio')
+        if args.transport == "streamable-http":
+            logger.info(f"   - HTTP Server: {args.host}:{args.port}")
+    
+    if args.transport == "streamable-http":
+        logger.info(f"Starting TradingView MCP server on {args.host}:{args.port}")
+        mcp_server.settings.host = args.host
+        mcp_server.settings.port = args.port
+        mcp_server.run(transport='streamable-http')
+    else:
+        mcp_server.run(transport='stdio')
