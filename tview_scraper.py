@@ -43,7 +43,7 @@ class TradingViewScraper:
     # --- Constants ---
     TRADINGVIEW_BASE_URL = "https://www.tradingview.com"
     TRADINGVIEW_CHART_BASE_URL = "https://in.tradingview.com/chart/"
-    DEFAULT_CHART_PAGE_ID = "SAaseURe"
+    DEFAULT_CHART_PAGE_ID = "XHDbt5Yy"
     SESSION_ID_COOKIE = "sessionid"
     SESSION_ID_SIGN_COOKIE = "sessionid_sign"
     SESSION_ID_ENV_VAR = "TRADINGVIEW_SESSION_ID"
