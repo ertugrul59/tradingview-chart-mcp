@@ -12,9 +12,11 @@ from selenium import webdriver
 from selenium.common.exceptions import WebDriverException, TimeoutException, NoSuchWindowException
 from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
 
 load_dotenv()
 
@@ -126,7 +128,7 @@ class TradingViewScraper:
         chrome_options.add_experimental_option("prefs", prefs)
 
         try:
-            self.driver = webdriver.Chrome(options=chrome_options)
+            self.driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
             # Set optimized timeouts
             self.driver.set_script_timeout(self.ASYNC_SCRIPT_TIMEOUT)
             self.driver.implicitly_wait(1)  # Short implicit wait
