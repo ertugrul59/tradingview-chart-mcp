@@ -1,8 +1,4 @@
-fastapi
-uvicorn
+mcp[cli]
 python-dotenv
-langchain-mcp
-requests
-beautifulsoup4
 selenium
 webdriver-manager
