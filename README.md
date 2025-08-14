@@ -2,8 +2,6 @@
 
 # MCP Server - TradingView Chart Image Scraper
 
-[![smithery badge](https://smithery.ai/badge/@ertugrul59/tradingview-chart-mcp)](https://smithery.ai/server/@ertugrul59/tradingview-chart-mcp)
-
 **🚀 Now with Browser Pooling Optimization for 70-80% Better Concurrent Performance!**
 
 This MCP server provides tools to fetch TradingView chart images based on ticker and interval with advanced browser pooling for maximum concurrent performance.
