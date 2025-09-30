@@ -1,3 +1,10 @@
+"""TradingView chart scraper using Selenium.
+
+This module provides functionality to capture TradingView chart screenshots
+using Selenium WebDriver with Chrome. It supports both clipboard-based image
+capture and screenshot link generation.
+"""
+
 import logging
 import os
 import re
@@ -5,7 +12,6 @@ import time
 import base64
 import platform
 import json
-import shutil
 import subprocess
 from typing import Optional
 
@@ -22,19 +28,13 @@ from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
+
 
 load_dotenv()
-
-# Configure WebDriver Manager to suppress logs
-webdriver_manager_logger = logging.getLogger("WDM")
-webdriver_manager_logger.setLevel(logging.WARNING)  # Only show warnings and errors
 
 
 class TradingViewScraperError(Exception):
     """Custom exception for TradingView scraper errors."""
-
-    pass
 
 
 class TradingViewClipboardServerError(TradingViewScraperError):
@@ -95,15 +95,17 @@ class TradingViewScraper:
         use_save_shortcut: bool = True,
     ):
         """Initializes the scraper configuration."""
-        self.headless = headless
-        self.window_size = window_size
-        self.chart_page_id = chart_page_id
-        self.default_ticker = default_ticker
-        self.default_interval = default_interval
-        self.use_save_shortcut = use_save_shortcut
+        # Group configuration settings
+        self.config = {
+            "headless": headless,
+            "window_size": window_size,
+            "chart_page_id": chart_page_id,
+            "default_ticker": default_ticker,
+            "default_interval": default_interval,
+            "use_save_shortcut": use_save_shortcut,
+        }
         self.driver = None
         self.wait = None
-
         self.logger = logging.getLogger(__name__)
         # Ensure logger is configured if run as script
         if not self.logger.handlers:
@@ -120,7 +122,7 @@ class TradingViewScraper:
         """Configures and initializes the Chrome WebDriver with optimized settings."""
         self.logger.info("Initializing WebDriver...")
         chrome_options = Options()
-        if self.headless:
+        if self.config["headless"]:
             chrome_options.add_argument("--headless")
 
         # Performance optimizations
@@ -135,7 +137,7 @@ class TradingViewScraper:
         chrome_options.add_argument("--disable-ipc-flooding-protection")
         chrome_options.add_argument("--force-dark-mode")
         chrome_options.add_argument("--disable-extensions")
-        chrome_options.add_argument(f"--window-size={self.window_size}")
+        chrome_options.add_argument(f"--window-size={self.config['window_size']}")
 
         # Faster page loading
         chrome_options.add_argument("--aggressive-cache-discard")
@@ -234,9 +236,6 @@ class TradingViewScraper:
         chrome_options.add_argument("--disable-logging-redirect")
 
         prefs = {
-            "profile.content_settings.exceptions.clipboard": {
-                "[*.]tradingview.com,*": {"setting": 1}  # Allow clipboard access
-            },
             # Additional clipboard permissions
             "profile.default_content_setting_values.clipboard": 1,
             "profile.content_settings.exceptions.clipboard": {
@@ -251,12 +250,12 @@ class TradingViewScraper:
         }
         chrome_options.add_experimental_option("prefs", prefs)
 
-        # Get ChromeDriver path with Windows-specific fixes
-        chromedriver_path = self._get_chromedriver_path()
-
+        # Use Selenium 4's built-in driver management (no need for webdriver-manager)
         try:
+            # ChromeService() without path uses Selenium Manager to auto-download driver
+            service = ChromeService()
             self.driver = webdriver.Chrome(
-                service=ChromeService(chromedriver_path),
+                service=service,
                 options=chrome_options,
             )
             # Set optimized timeouts
@@ -264,88 +263,11 @@ class TradingViewScraper:
             self.driver.implicitly_wait(1)  # Short implicit wait
             self.wait = WebDriverWait(self.driver, self.MAX_CHART_WAIT_TIME)
             self.logger.info(
-                f"WebDriver initialized successfully with optimized settings."
+                "WebDriver initialized successfully with optimized settings."
             )
         except WebDriverException as e:
-            self.logger.error(f"Failed to initialize WebDriver: {e}")
+            self.logger.error("Failed to initialize WebDriver: %s", e)
             raise TradingViewScraperError("WebDriver initialization failed") from e
-
-    def _get_chromedriver_path(self):
-        """Get ChromeDriver path with Windows-specific fixes."""
-        try:
-            # First, try the standard ChromeDriverManager
-            chromedriver_path = ChromeDriverManager().install()
-
-            # Check if the path is valid on Windows
-            if platform.system() == "Windows":
-                # Common issue: ChromeDriverManager returns incorrect path
-                if not chromedriver_path.endswith(".exe"):
-                    # Try to find the actual .exe file
-                    chromedriver_dir = os.path.dirname(chromedriver_path)
-                    possible_paths = [
-                        os.path.join(chromedriver_dir, "chromedriver.exe"),
-                        os.path.join(
-                            chromedriver_dir, "chromedriver-win32", "chromedriver.exe"
-                        ),
-                        os.path.join(
-                            chromedriver_dir, "chromedriver-win64", "chromedriver.exe"
-                        ),
-                    ]
-
-                    for path in possible_paths:
-                        if os.path.exists(path) and os.access(path, os.X_OK):
-                            self.logger.info(f"Found ChromeDriver at: {path}")
-                            return path
-
-                # If still not found, try clearing cache and reinstalling
-                self.logger.warning(
-                    "ChromeDriver not found, clearing cache and reinstalling..."
-                )
-                self._clear_chromedriver_cache()
-                chromedriver_path = ChromeDriverManager().install()
-
-                # Check again
-                if not chromedriver_path.endswith(".exe"):
-                    chromedriver_dir = os.path.dirname(chromedriver_path)
-                    for path in possible_paths:
-                        if os.path.exists(path) and os.access(path, os.X_OK):
-                            self.logger.info(
-                                f"Found ChromeDriver after cache clear at: {path}"
-                            )
-                            return path
-
-                # Last resort: try system PATH
-                system_chromedriver = shutil.which("chromedriver")
-                if system_chromedriver:
-                    self.logger.info(
-                        f"Using system ChromeDriver: {system_chromedriver}"
-                    )
-                    return system_chromedriver
-
-                raise TradingViewScraperError(
-                    "ChromeDriver executable not found. Please install ChromeDriver manually."
-                )
-
-            # For non-Windows systems, use the path as-is
-            return chromedriver_path
-
-        except Exception as e:
-            self.logger.error(f"Error getting ChromeDriver path: {e}")
-            raise TradingViewScraperError(f"Failed to get ChromeDriver path: {e}")
-
-    def _clear_chromedriver_cache(self):
-        """Clear ChromeDriver cache on Windows."""
-        try:
-            if platform.system() == "Windows":
-                # ChromeDriverManager cache location
-                cache_dir = os.path.expanduser("~/.wdm")
-                if os.path.exists(cache_dir):
-                    import shutil
-
-                    shutil.rmtree(cache_dir)
-                    self.logger.info("ChromeDriver cache cleared.")
-        except Exception as e:
-            self.logger.warning(f"Failed to clear ChromeDriver cache: {e}")
 
     def _validate_chrome_installation(self):
         """Validate that Chrome is properly installed."""
@@ -362,7 +284,7 @@ class TradingViewScraper:
 
                 for path in chrome_paths:
                     if os.path.exists(path):
-                        self.logger.info(f"Chrome found at: {path}")
+                        self.logger.info("Chrome found at: %s", path)
                         return True
 
                 # Try to get Chrome version
@@ -372,9 +294,10 @@ class TradingViewScraper:
                         capture_output=True,
                         text=True,
                         timeout=5,
+                        check=False,
                     )
                     if result.returncode == 0:
-                        self.logger.info(f"Chrome version: {result.stdout.strip()}")
+                        self.logger.info("Chrome version: %s", result.stdout.strip())
                         return True
                 except (subprocess.TimeoutExpired, FileNotFoundError):
                     pass
@@ -387,7 +310,7 @@ class TradingViewScraper:
             return True  # Assume Chrome is available on non-Windows systems
 
         except Exception as e:
-            self.logger.warning(f"Error validating Chrome installation: {e}")
+            self.logger.warning("Error validating Chrome installation: %s", e)
             return True  # Don't fail the process for validation errors
 
     def _set_auth_cookies_optimized(self, chart_url: str) -> bool:
@@ -397,7 +320,9 @@ class TradingViewScraper:
 
         if not session_id_value or not session_id_sign_value:
             self.logger.warning(
-                f"TradingView session cookies not found. Ensure {self.SESSION_ID_ENV_VAR} and {self.SESSION_ID_SIGN_ENV_VAR} are set in environment."
+                "TradingView session cookies not found. Ensure %s and %s are set in environment.",
+                self.SESSION_ID_ENV_VAR,
+                self.SESSION_ID_SIGN_ENV_VAR,
             )
             return False
 
@@ -407,7 +332,7 @@ class TradingViewScraper:
 
         try:
             # Navigate directly to chart URL (faster than base domain + redirect)
-            self.logger.info(f"Navigating directly to chart URL for cookie setting...")
+            self.logger.info("Navigating directly to chart URL for cookie setting...")
             self.driver.get(chart_url)
 
             # Set cookies immediately without additional wait
@@ -442,15 +367,146 @@ class TradingViewScraper:
             return True
 
         except (WebDriverException, TimeoutException) as e:
-            self.logger.error(f"Error setting cookies: {e}")
+            self.logger.error("Error setting cookies: %s", e)
             return False
+
+    def _wait_for_chart_infrastructure(self):
+        """Wait for essential chart elements with parallel detection."""
+        self.logger.info("Checking for chart infrastructure...")
+        self.wait.until(
+            EC.any_of(
+                # Primary chart indicators (fastest to appear)
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "#header-toolbar-chart-styles")
+                ),
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".tv-header")),
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "[data-name='legend-source-item']")
+                ),
+                # Fallback selectors
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, ".chart-container, .tv-chart-container")
+                ),
+            )
+        )
+        self.logger.info("Chart infrastructure found.")
+
+    def _check_chart_rendering_elements(self):
+        """Check for chart rendering elements in parallel."""
+        self.logger.info("Checking for chart rendering...")
+        chart_elements_ready = False
+        max_element_wait = 2  # Very short wait for elements
+        element_wait_start = time.time()
+
+        while (
+            not chart_elements_ready
+            and (time.time() - element_wait_start) < max_element_wait
+        ):
+            try:
+                # Check multiple element types in parallel
+                canvas_elements = self.driver.find_elements(By.CSS_SELECTOR, "canvas")
+                chart_widgets = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".chart-widget, .tv-chart-widget, [data-name='chart-widget']",
+                )
+                price_elements = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".tv-symbol-header, [data-name='legend-source-item']",
+                )
+
+                # Quick readiness check
+                if (len(canvas_elements) > 0 or len(chart_widgets) > 0) and len(
+                    price_elements
+                ) > 0:
+                    chart_elements_ready = True
+                    break
+
+            except Exception:
+                pass
+
+            time.sleep(0.1)  # Very fast polling
+
+        if chart_elements_ready:
+            self.logger.info("Chart rendering elements found.")
+        else:
+            self.logger.info("Chart elements not fully detected, proceeding anyway.")
+        return chart_elements_ready
+
+    def _wait_for_save_shortcut_ready(self, start_time):
+        """Ultra-minimal wait for save shortcut method."""
+        self.logger.info("Save shortcut method - ultra-fast readiness check...")
+
+        # Just ensure no major loading indicators
+        loading_check_start = time.time()
+        max_loading_check = 1.5  # Very short
+
+        while (time.time() - loading_check_start) < max_loading_check:
+            try:
+                loading_indicators = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".tv-spinner--shown, .loading, [data-role='spinner']",
+                )
+
+                if not loading_indicators:
+                    break
+            except Exception:
+                pass
+
+            time.sleep(0.1)
+
+        elapsed = time.time() - start_time
+        self.logger.info(
+            "Chart ready for capture in %.1fs (ultra-fast save shortcut)",
+            elapsed,
+        )
+
+    def _wait_for_traditional_ready(self, start_time):
+        """Traditional method with minimal data check."""
+        self.logger.info("Traditional method - minimal data check...")
+        chart_ready = False
+        max_data_wait = 2  # Reduced from 5 seconds
+        data_wait_start = time.time()
+
+        while not chart_ready and (time.time() - data_wait_start) < max_data_wait:
+            try:
+                # Quick parallel check
+                price_elements = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    "[data-name='legend-source-item'], .tv-symbol-header, .js-button-text",
+                )
+                canvas_elements = self.driver.find_elements(By.CSS_SELECTOR, "canvas")
+                loading_indicators = self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".tv-spinner--shown, .loading, [data-role='spinner']",
+                )
+
+                if (
+                    len(price_elements) > 0
+                    and len(canvas_elements) > 0
+                    and not loading_indicators
+                ):
+                    chart_ready = True
+                    break
+            except Exception:
+                pass
+
+            time.sleep(0.1)  # Very fast polling
+
+        elapsed = time.time() - start_time
+        if chart_ready:
+            self.logger.info("Chart ready in %.1fs (optimized traditional)", elapsed)
+        else:
+            self.logger.info(
+                "Chart readiness timeout after %.1fs, proceeding anyway",
+                elapsed,
+            )
 
     def _navigate_and_wait(self, url: str):
         """Navigates to a URL and waits for chart to be ready using advanced intelligent waiting."""
         if not self.driver:
             raise TradingViewScraperError("Driver not available for navigation.")
         try:
-            self.logger.info(f"Navigating to chart URL: {url}")
+            self.logger.info("Navigating to chart URL: %s", url)
             self.driver.get(url)
 
             # Advanced optimized intelligent waiting for chart readiness
@@ -459,158 +515,28 @@ class TradingViewScraper:
 
             # Wait for essential chart elements with parallel detection
             try:
-                # Use more specific and faster selectors for TradingView
-                self.logger.info("Checking for chart infrastructure...")
-                self.wait.until(
-                    EC.any_of(
-                        # Primary chart indicators (fastest to appear)
-                        EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, "#header-toolbar-chart-styles")
-                        ),
-                        EC.presence_of_element_located((By.CSS_SELECTOR, ".tv-header")),
-                        EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, "[data-name='legend-source-item']")
-                        ),
-                        # Fallback selectors
-                        EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, ".chart-container, .tv-chart-container")
-                        ),
-                    )
-                )
-                self.logger.info("Chart infrastructure found.")
-
-                # Parallel check for chart rendering elements
-                self.logger.info("Checking for chart rendering...")
-                chart_elements_ready = False
-                max_element_wait = 2  # Very short wait for elements
-                element_wait_start = time.time()
-
-                while (
-                    not chart_elements_ready
-                    and (time.time() - element_wait_start) < max_element_wait
-                ):
-                    try:
-                        # Check multiple element types in parallel
-                        canvas_elements = self.driver.find_elements(
-                            By.CSS_SELECTOR, "canvas"
-                        )
-                        chart_widgets = self.driver.find_elements(
-                            By.CSS_SELECTOR,
-                            ".chart-widget, .tv-chart-widget, [data-name='chart-widget']",
-                        )
-                        price_elements = self.driver.find_elements(
-                            By.CSS_SELECTOR,
-                            ".tv-symbol-header, [data-name='legend-source-item']",
-                        )
-
-                        # Quick readiness check
-                        if (len(canvas_elements) > 0 or len(chart_widgets) > 0) and len(
-                            price_elements
-                        ) > 0:
-                            chart_elements_ready = True
-                            break
-
-                    except Exception:
-                        pass
-
-                    time.sleep(0.1)  # Very fast polling
-
-                if chart_elements_ready:
-                    self.logger.info("Chart rendering elements found.")
-                else:
-                    self.logger.info(
-                        "Chart elements not fully detected, proceeding anyway."
-                    )
+                self._wait_for_chart_infrastructure()
+                self._check_chart_rendering_elements()
 
                 # Method-specific optimization
-                if self.use_save_shortcut:
-                    # Ultra-minimal wait for save shortcut method
-                    self.logger.info(
-                        "Save shortcut method - ultra-fast readiness check..."
-                    )
-
-                    # Just ensure no major loading indicators
-                    loading_check_start = time.time()
-                    max_loading_check = 1.5  # Very short
-
-                    while (time.time() - loading_check_start) < max_loading_check:
-                        try:
-                            loading_indicators = self.driver.find_elements(
-                                By.CSS_SELECTOR,
-                                ".tv-spinner--shown, .loading, [data-role='spinner']",
-                            )
-
-                            if not loading_indicators:
-                                break
-                        except Exception:
-                            pass
-
-                        time.sleep(0.1)
-
-                    elapsed = time.time() - start_time
-                    self.logger.info(
-                        f"Chart ready for capture in {elapsed:.1f}s (ultra-fast save shortcut)"
-                    )
-
+                if self.config["use_save_shortcut"]:
+                    self._wait_for_save_shortcut_ready(start_time)
                 else:
-                    # Traditional method with minimal data check
-                    self.logger.info("Traditional method - minimal data check...")
-                    chart_ready = False
-                    max_data_wait = 2  # Reduced from 5 seconds
-                    data_wait_start = time.time()
-
-                    while (
-                        not chart_ready
-                        and (time.time() - data_wait_start) < max_data_wait
-                    ):
-                        try:
-                            # Quick parallel check
-                            price_elements = self.driver.find_elements(
-                                By.CSS_SELECTOR,
-                                "[data-name='legend-source-item'], .tv-symbol-header, .js-button-text",
-                            )
-                            canvas_elements = self.driver.find_elements(
-                                By.CSS_SELECTOR, "canvas"
-                            )
-                            loading_indicators = self.driver.find_elements(
-                                By.CSS_SELECTOR,
-                                ".tv-spinner--shown, .loading, [data-role='spinner']",
-                            )
-
-                            if (
-                                len(price_elements) > 0
-                                and len(canvas_elements) > 0
-                                and not loading_indicators
-                            ):
-                                chart_ready = True
-                                break
-                        except Exception:
-                            pass
-
-                        time.sleep(0.1)  # Very fast polling
-
-                    elapsed = time.time() - start_time
-                    if chart_ready:
-                        self.logger.info(
-                            f"Chart ready in {elapsed:.1f}s (optimized traditional)"
-                        )
-                    else:
-                        self.logger.info(
-                            f"Chart readiness timeout after {elapsed:.1f}s, proceeding anyway"
-                        )
+                    self._wait_for_traditional_ready(start_time)
 
             except TimeoutException:
                 # Ultra-short fallback
                 elapsed = time.time() - start_time
                 self.logger.warning(
-                    f"Chart elements not found after {elapsed:.1f}s, using minimal fallback..."
+                    "Chart elements not found after %.1fs, using minimal fallback...",
+                    elapsed,
                 )
                 time.sleep(0.5)  # Minimal fallback wait
                 elapsed = time.time() - start_time
-                self.logger.info(f"Total wait time: {elapsed:.1f}s (minimal fallback)")
+                self.logger.info("Total wait time: %.1fs (minimal fallback)", elapsed)
 
         except (WebDriverException, TimeoutException) as e:
-            self.logger.error(f"Failed to navigate to {url}: {e}")
+            self.logger.error("Failed to navigate to %s: %s", url, e)
             raise TradingViewScraperError(f"Navigation to {url} failed") from e
 
     def _trigger_screenshot_and_get_link(self) -> Optional[str]:
@@ -623,7 +549,9 @@ class TradingViewScraper:
         clipboard_content = None
         for attempt in range(self.MAX_CLIPBOARD_ATTEMPTS):
             self.logger.info(
-                f"Attempting to get clipboard content (attempt {attempt + 1}/{self.MAX_CLIPBOARD_ATTEMPTS})..."
+                "Attempting to get clipboard content (attempt %d/%d)...",
+                attempt + 1,
+                self.MAX_CLIPBOARD_ATTEMPTS,
             )
 
             try:
@@ -654,7 +582,7 @@ class TradingViewScraper:
                             clipboard_content = test_content.strip()
                             clipboard_ready = True
                             elapsed = time.time() - clipboard_wait_start
-                            self.logger.info(f"Clipboard populated in {elapsed:.1f}s")
+                            self.logger.info("Clipboard populated in %.1fs", elapsed)
                             break
                     except WebDriverException:
                         pass  # Continue waiting
@@ -669,7 +597,7 @@ class TradingViewScraper:
                             self.CLIPBOARD_READ_SCRIPT
                         )
                     except WebDriverException as e:
-                        self.logger.warning(f"Failed to read clipboard: {e}")
+                        self.logger.warning("Failed to read clipboard: %s", e)
                         clipboard_content = None
 
                 if (
@@ -679,14 +607,14 @@ class TradingViewScraper:
                 ):
                     self.logger.info("Successfully retrieved content from clipboard.")
                     return clipboard_content.strip()
-                else:
-                    self.logger.warning(
-                        "Clipboard was empty or returned non-string/empty content."
-                    )
-                    clipboard_content = None  # Ensure loop continues if content invalid
+
+                self.logger.warning(
+                    "Clipboard was empty or returned non-string/empty content."
+                )
+                clipboard_content = None  # Ensure loop continues if content invalid
             except (WebDriverException, TimeoutException) as e:
                 self.logger.error(
-                    f"Error during screenshot trigger or clipboard read: {e}"
+                    "Error during screenshot trigger or clipboard read: %s", e
                 )
                 # Decide if retry makes sense for this error type
                 break  # Stop retrying on general WebDriver errors
@@ -694,7 +622,8 @@ class TradingViewScraper:
             # Wait before retrying
             if attempt < self.MAX_CLIPBOARD_ATTEMPTS - 1:
                 self.logger.info(
-                    f"Clipboard empty/no content yet, waiting {self.CLIPBOARD_RETRY_INTERVAL}s before retrying..."
+                    "Clipboard empty/no content yet, waiting %ss before retrying...",
+                    self.CLIPBOARD_RETRY_INTERVAL,
                 )
                 time.sleep(self.CLIPBOARD_RETRY_INTERVAL)
 
@@ -704,166 +633,166 @@ class TradingViewScraper:
             )
         return None
 
+    def _handle_save_shortcut_method(self):
+        """Handle save shortcut method for clipboard content retrieval."""
+        self.logger.info(
+            "Save shortcut method - going directly to image clipboard reading..."
+        )
+        # Ultra-short delay for clipboard to be populated with image
+        time.sleep(self.SAVE_SHORTCUT_IMAGE_DELAY)  # Use optimized constant
+
+        # Try to read image directly
+        image_data = self._read_image_from_clipboard()
+        if image_data:
+            self.logger.info("Successfully retrieved image data from clipboard.")
+            return self._convert_clipboard_to_image_url(image_data)
+
+        self.logger.warning("No image data found in clipboard, will retry...")
+        return None
+
+    def _handle_traditional_method(self):
+        """Handle traditional method for clipboard content retrieval."""
+        self.logger.info("Traditional method - polling text clipboard...")
+        clipboard_ready = False
+        max_clipboard_wait = self.MAX_CLIPBOARD_WAIT_TIME  # Use optimized constant
+        clipboard_wait_start = time.time()
+
+        while (
+            not clipboard_ready
+            and (time.time() - clipboard_wait_start) < max_clipboard_wait
+        ):
+            try:
+                # Try to read text from clipboard
+                test_content = self.driver.execute_script(
+                    "return navigator.clipboard.readText();"
+                )
+                if test_content and test_content.strip():
+                    clipboard_content = test_content
+                    clipboard_ready = True
+                    elapsed = time.time() - clipboard_wait_start
+                    self.logger.info("Clipboard populated in %.1fs", elapsed)
+                    break
+            except WebDriverException:
+                pass  # Continue waiting
+
+            time.sleep(0.1)  # Very fast polling (reduced from 0.2s)
+
+        if not clipboard_ready:
+            # Final attempt after max wait
+            try:
+                clipboard_content = self.driver.execute_script(
+                    "return navigator.clipboard.readText();"
+                )
+                self.logger.info(
+                    "Text clipboard content: %s",
+                    ("[empty]" if not clipboard_content else "[content received]"),
+                )
+            except WebDriverException as e:
+                self.logger.warning("Failed to read text from clipboard: %s", e)
+                clipboard_content = None
+
+        # Check if we got valid text content
+        if clipboard_content and clipboard_content.strip():
+            # Check for server error JSON in clipboard content
+            try:
+                response = json.loads(clipboard_content)
+                if (
+                    isinstance(response, dict)
+                    and "code" in response
+                    and "msg" in response
+                    and response.get("success") is False
+                ):
+                    error_code = response.get("code")
+                    error_msg = response.get("msg")
+                    retryable_codes = [
+                        "40001",
+                        40001,
+                        "50000",
+                        50000,
+                        "502",
+                        502,
+                        "503",
+                        503,
+                    ]
+                    if error_code in retryable_codes or "Server Error" in str(
+                        error_msg
+                    ):
+                        self.logger.warning(
+                            "🔄 Detected retryable server error in clipboard: %s",
+                            clipboard_content,
+                        )
+                        raise TradingViewClipboardServerError(
+                            f"Server error in clipboard: {error_msg} (code: {error_code})",
+                            response,
+                        )
+            except (json.JSONDecodeError, TypeError):
+                pass  # Not JSON, treat as normal content
+
+            self.logger.info("Successfully retrieved text content from clipboard.")
+            return clipboard_content
+
+        # If still no content, try alternative shortcuts for traditional method
+        if not clipboard_content or not clipboard_content.strip():
+            self.logger.info("No content found, trying alternative shortcuts...")
+            if self._try_alternative_shortcuts():
+                # Try reading text clipboard again after alternative shortcut
+                try:
+                    alt_clipboard_content = self.driver.execute_script(
+                        "return navigator.clipboard.readText();"
+                    )
+                    if alt_clipboard_content and alt_clipboard_content.strip():
+                        self.logger.info("Alternative shortcut produced text content.")
+                        return alt_clipboard_content
+                except WebDriverException as e:
+                    self.logger.warning(
+                        "Failed to read clipboard after alternative shortcut: %s",
+                        e,
+                    )
+
+        return None
+
     def _get_clipboard_content(self) -> Optional[str]:
         """Get clipboard content with intelligent retry logic optimized for save shortcut method."""
         if not self.driver:
             raise TradingViewScraperError("Driver not available for clipboard reading.")
 
-        clipboard_content = None
         for attempt in range(self.MAX_CLIPBOARD_ATTEMPTS):
             self.logger.info(
-                f"Attempting to get clipboard content (attempt {attempt + 1}/{self.MAX_CLIPBOARD_ATTEMPTS})..."
+                "Attempting to get clipboard content (attempt %d/%d)...",
+                attempt + 1,
+                self.MAX_CLIPBOARD_ATTEMPTS,
             )
             try:
                 # Send the save shortcut key combination
                 self._send_save_shortcut()
 
                 # Optimization: For save shortcut method, skip text clipboard and go directly to image
-                if self.use_save_shortcut:
-                    self.logger.info(
-                        "Save shortcut method - going directly to image clipboard reading..."
-                    )
-                    # Ultra-short delay for clipboard to be populated with image
-                    time.sleep(self.SAVE_SHORTCUT_IMAGE_DELAY)  # Use optimized constant
-
-                    # Try to read image directly
-                    image_data = self._read_image_from_clipboard()
-                    if image_data:
-                        self.logger.info(
-                            "Successfully retrieved image data from clipboard."
-                        )
-                        return self._convert_clipboard_to_image_url(image_data)
-                    else:
-                        self.logger.warning(
-                            "No image data found in clipboard, will retry..."
-                        )
-
+                if self.config["use_save_shortcut"]:
+                    result = self._handle_save_shortcut_method()
+                    if result:
+                        return result
                 else:
-                    # Traditional method: intelligent text clipboard polling
-                    self.logger.info("Traditional method - polling text clipboard...")
-                    clipboard_ready = False
-                    max_clipboard_wait = (
-                        self.MAX_CLIPBOARD_WAIT_TIME
-                    )  # Use optimized constant
-                    clipboard_wait_start = time.time()
-
-                    while (
-                        not clipboard_ready
-                        and (time.time() - clipboard_wait_start) < max_clipboard_wait
-                    ):
-                        try:
-                            # Try to read text from clipboard
-                            test_content = self.driver.execute_script(
-                                "return navigator.clipboard.readText();"
-                            )
-                            if test_content and test_content.strip():
-                                clipboard_content = test_content
-                                clipboard_ready = True
-                                elapsed = time.time() - clipboard_wait_start
-                                self.logger.info(
-                                    f"Clipboard populated in {elapsed:.1f}s"
-                                )
-                                break
-                        except WebDriverException:
-                            pass  # Continue waiting
-
-                        time.sleep(0.1)  # Very fast polling (reduced from 0.2s)
-
-                    if not clipboard_ready:
-                        # Final attempt after max wait
-                        try:
-                            clipboard_content = self.driver.execute_script(
-                                "return navigator.clipboard.readText();"
-                            )
-                            self.logger.info(
-                                f'Text clipboard content: {"[empty]" if not clipboard_content else "[content received]"}'
-                            )
-                        except WebDriverException as e:
-                            self.logger.warning(
-                                f"Failed to read text from clipboard: {e}"
-                            )
-                            clipboard_content = None
-
-                    # Check if we got valid text content
-                    if clipboard_content and clipboard_content.strip():
-                        # Check for server error JSON in clipboard content
-                        try:
-                            response = json.loads(clipboard_content)
-                            if (
-                                isinstance(response, dict)
-                                and "code" in response
-                                and "msg" in response
-                                and response.get("success") is False
-                            ):
-                                error_code = response.get("code")
-                                error_msg = response.get("msg")
-                                retryable_codes = [
-                                    "40001",
-                                    40001,
-                                    "50000",
-                                    50000,
-                                    "502",
-                                    502,
-                                    "503",
-                                    503,
-                                ]
-                                if (
-                                    error_code in retryable_codes
-                                    or "Server Error" in str(error_msg)
-                                ):
-                                    self.logger.warning(
-                                        f"🔄 Detected retryable server error in clipboard: {clipboard_content}"
-                                    )
-                                    raise TradingViewClipboardServerError(
-                                        f"Server error in clipboard: {error_msg} (code: {error_code})",
-                                        response,
-                                    )
-                        except (json.JSONDecodeError, TypeError):
-                            pass  # Not JSON, treat as normal content
-
-                        self.logger.info(
-                            "Successfully retrieved text content from clipboard."
-                        )
-                        return clipboard_content
-
-                    # If still no content, try alternative shortcuts for traditional method
-                    if not clipboard_content or not clipboard_content.strip():
-                        self.logger.info(
-                            "No content found, trying alternative shortcuts..."
-                        )
-                        if self._try_alternative_shortcuts():
-                            # Try reading text clipboard again after alternative shortcut
-                            try:
-                                alt_clipboard_content = self.driver.execute_script(
-                                    "return navigator.clipboard.readText();"
-                                )
-                                if (
-                                    alt_clipboard_content
-                                    and alt_clipboard_content.strip()
-                                ):
-                                    self.logger.info(
-                                        "Alternative shortcut produced text content."
-                                    )
-                                    return alt_clipboard_content
-                            except WebDriverException as e:
-                                self.logger.warning(
-                                    f"Failed to read clipboard after alternative shortcut: {e}"
-                                )
+                    result = self._handle_traditional_method()
+                    if result:
+                        return result
 
             except TradingViewClipboardServerError as e:
                 self.logger.warning(
-                    f"[Clipboard] Server error detected in clipboard, will retry: {e}"
+                    "[Clipboard] Server error detected in clipboard, will retry: %s", e
                 )
             except WebDriverException as js_err:
-                self.logger.warning(f"Error during clipboard operation: {js_err}")
+                self.logger.warning("Error during clipboard operation: %s", js_err)
 
             # Wait before retrying (shorter intervals)
             if attempt < self.MAX_CLIPBOARD_ATTEMPTS - 1:
                 retry_delay = (
-                    0.5 if self.use_save_shortcut else self.CLIPBOARD_RETRY_INTERVAL
+                    0.5
+                    if self.config["use_save_shortcut"]
+                    else self.CLIPBOARD_RETRY_INTERVAL
                 )
                 self.logger.info(
-                    f"Clipboard empty/no content yet, waiting {retry_delay}s before retrying..."
+                    "Clipboard empty/no content yet, waiting %ss before retrying...",
+                    retry_delay,
                 )
                 time.sleep(retry_delay)
 
@@ -893,7 +822,7 @@ class TradingViewScraper:
             self.logger.info("Shift+Ctrl/Command+S sent.")
 
         except Exception as e:
-            self.logger.error(f"Error sending save shortcut: {e}")
+            self.logger.error("Error sending save shortcut: %s", e)
             raise
 
     def _try_alternative_shortcuts(self):
@@ -931,12 +860,12 @@ class TradingViewScraper:
 
         for shortcut_name, shortcut_action in shortcuts:
             try:
-                self.logger.info(f"Trying alternative shortcut: {shortcut_name}")
+                self.logger.info("Trying alternative shortcut: %s", shortcut_name)
                 shortcut_action()
                 time.sleep(2)
                 return True
             except WebDriverException as e:
-                self.logger.warning(f"Failed to send {shortcut_name}: {e}")
+                self.logger.warning("Failed to send %s: %s", shortcut_name, e)
                 continue
         return False
 
@@ -1022,20 +951,19 @@ class TradingViewScraper:
 
             if image_data_url and image_data_url.startswith("data:image/"):
                 self.logger.info(
-                    f"Successfully read image data from clipboard (length: {len(image_data_url)})"
+                    "Successfully read image data from clipboard (length: %d)",
+                    len(image_data_url),
                 )
                 # Convert data URL to bytes for consistency with Coinglass pattern
-                header, data = image_data_url.split(",", 1)
+                _, data = image_data_url.split(",", 1)
                 image_bytes = base64.b64decode(data)
                 return image_bytes
-            else:
-                self.logger.warning(
-                    "No image data found in clipboard or invalid format."
-                )
-                return None
+
+            self.logger.warning("No image data found in clipboard or invalid format.")
+            return None
 
         except WebDriverException as e:
-            self.logger.warning(f"Failed to read image from clipboard: {e}")
+            self.logger.warning("Failed to read image from clipboard: %s", e)
             return None
 
     def _convert_clipboard_to_image_url(self, image_data: bytes) -> str:
@@ -1048,15 +976,18 @@ class TradingViewScraper:
             data_url = f"data:image/png;base64,{base64_encoded}"
 
             self.logger.info(
-                f"response_string >>> {data_url[:100]}{'...' if len(data_url) > 100 else ''}"
+                "response_string >>> %s",
+                data_url[:100] + ("..." if len(data_url) > 100 else ""),
             )
             self.logger.info("Detected base64 image data URL from clipboard.")
 
             return data_url
 
         except Exception as e:
-            self.logger.error(f"Error converting clipboard content to image URL: {e}")
-            raise TradingViewScraperError(f"Failed to convert clipboard content: {e}")
+            self.logger.error("Error converting clipboard content to image URL: %s", e)
+            raise TradingViewScraperError(
+                f"Failed to convert clipboard content: {e}"
+            ) from e
 
     def get_chart_image_url(self, ticker: str, interval: str) -> Optional[str]:
         """
@@ -1070,7 +1001,7 @@ class TradingViewScraper:
             Base64 data URL string if successful, otherwise None.
         """
         self.logger.info(
-            f"=== Starting chart capture for {ticker} (timeframe: {interval}) ==="
+            "=== Starting chart capture for %s (timeframe: %s) ===", ticker, interval
         )
         if not self.driver:
             raise TradingViewScraperError(
@@ -1082,7 +1013,7 @@ class TradingViewScraper:
         try:
             # Attempt to set auth cookies
             if not self._set_auth_cookies_optimized(
-                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.chart_page_id}/?symbol={ticker}&interval={interval}"
+                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.config['chart_page_id']}/?symbol={ticker}&interval={interval}"
             ):
                 self.logger.warning(
                     "Proceeding without guaranteed authentication (cookies not set)."
@@ -1090,7 +1021,7 @@ class TradingViewScraper:
 
             # Navigate to chart
             self._navigate_and_wait(
-                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.chart_page_id}/?symbol={ticker}&interval={interval}"
+                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.config['chart_page_id']}/?symbol={ticker}&interval={interval}"
             )
 
             # Clear browser clipboard before reading
@@ -1100,34 +1031,38 @@ class TradingViewScraper:
                 self.logger.info("Browser clipboard cleared.")
                 time.sleep(self.ACTION_DELAY)
             except WebDriverException as clear_err:
-                self.logger.warning(f"Could not clear browser clipboard: {clear_err}")
+                self.logger.warning("Could not clear browser clipboard: %s", clear_err)
 
             # Get clipboard content (image data)
             self.logger.info("Starting clipboard content retrieval...")
-            image_url = self._get_clipboard_content()
+            chart_image_url = self._get_clipboard_content()
 
-            if image_url and (
-                image_url.startswith("https://s3.tradingview.com/snapshots/")
-                or image_url.startswith("data:image/")
+            if chart_image_url and (
+                chart_image_url.startswith("https://s3.tradingview.com/snapshots/")
+                or chart_image_url.startswith("data:image/")
             ):
                 self.logger.info(
-                    f"[Result] Successfully obtained image URL: {image_url[:100]}{'...' if len(image_url) > 100 else ''}"
+                    "[Result] Successfully obtained image URL: %s",
+                    chart_image_url[:100]
+                    + ("..." if len(chart_image_url) > 100 else ""),
                 )
             else:
                 self.logger.warning(
-                    f"[Result] Unexpected image URL or format: {image_url}"
+                    "[Result] Unexpected image URL or format: %s", chart_image_url
                 )
 
             self.logger.info(
-                f"=== Finished chart capture for {ticker} (timeframe: {interval}) ==="
+                "=== Finished chart capture for %s (timeframe: %s) ===",
+                ticker,
+                interval,
             )
-            return image_url
+            return chart_image_url
 
         except TradingViewScraperError as e:
-            self.logger.error(f"Scraping failed: {e}")
+            self.logger.error("Scraping failed: %s", e)
             return None  # Or re-raise if preferred
         except Exception as e:
-            self.logger.error(f"An unexpected error occurred: {e}", exc_info=True)
+            self.logger.error("An unexpected error occurred: %s", e, exc_info=True)
             return None  # Or re-raise
 
     def get_screenshot_link(self, ticker: str, interval: str) -> Optional[str]:
@@ -1154,14 +1089,14 @@ class TradingViewScraper:
         try:
             # Attempt to set auth cookies, proceed even if it fails but log warning
             if not self._set_auth_cookies_optimized(
-                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.chart_page_id}/?symbol={ticker}&interval={interval}"
+                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.config['chart_page_id']}/?symbol={ticker}&interval={interval}"
             ):
                 self.logger.warning(
                     "Proceeding without guaranteed authentication (cookies not set)."
                 )
 
             self._navigate_and_wait(
-                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.chart_page_id}/?symbol={ticker}&interval={interval}"
+                f"{self.TRADINGVIEW_CHART_BASE_URL}{self.config['chart_page_id']}/?symbol={ticker}&interval={interval}"
             )
 
             clipboard_link = self._trigger_screenshot_and_get_link()
@@ -1171,13 +1106,13 @@ class TradingViewScraper:
             # Re-raise known scraper errors
             raise
         except (WebDriverException, TimeoutException) as e:
-            self.logger.error(f"An unexpected WebDriver error occurred: {e}")
+            self.logger.error("An unexpected WebDriver error occurred: %s", e)
             raise TradingViewScraperError(
                 "Screenshot capture failed due to WebDriver error"
             ) from e
         except Exception as e:
             self.logger.error(
-                f"An unexpected general error occurred: {e}", exc_info=True
+                "An unexpected general error occurred: %s", e, exc_info=True
             )
             raise TradingViewScraperError(
                 "An unexpected error occurred during screenshot capture"
@@ -1189,7 +1124,7 @@ class TradingViewScraper:
         if not input_string:
             return None
 
-        logger = logging.getLogger(__name__)
+        method_logger = logging.getLogger(__name__)
 
         # Regex to find links like 'https://www.tradingview.com/x/...' or 'https://in.tradingview.com/x/...'
         pattern = r"https://(?:www\.|in\.)?tradingview\.com/x/([a-zA-Z0-9]+)/?"
@@ -1204,20 +1139,23 @@ class TradingViewScraper:
             # Replace only the specific matched URL to handle multiple links correctly
             if matched_url in output_string:
                 output_string = output_string.replace(matched_url, new_link)
-                logger.info(f"Converted {matched_url} to {new_link}")
+                method_logger.info("Converted %s to %s", matched_url, new_link)
                 found_match = True
             else:
                 # This case should be rare if the match came from the input string
-                logger.warning(
-                    f"Pattern matched ID {match_id} ({matched_url}), but couldn't find exact link to replace in the current output string."
+                method_logger.warning(
+                    "Pattern matched ID %s (%s), but couldn't find exact link to replace in the current output string.",
+                    match_id,
+                    matched_url,
                 )
 
         if not found_match and re.search(r"tradingview\.com/x/", input_string):
-            logger.warning(
-                f"Input string contained 'tradingview.com/x/' but regex pattern '{pattern}' did not match. Returning original."
+            method_logger.warning(
+                "Input string contained 'tradingview.com/x/' but regex pattern '%s' did not match. Returning original.",
+                pattern,
             )
         elif not found_match:
-            logger.debug("No TradingView share links found to convert.")
+            method_logger.debug("No TradingView share links found to convert.")
 
         return output_string
 
@@ -1231,16 +1169,16 @@ class TradingViewScraper:
                 self.driver = None
             except (WebDriverException, NoSuchWindowException) as e:
                 self.logger.warning(
-                    f"Error quitting WebDriver (might be already closed): {e}"
+                    "Error quitting WebDriver (might be already closed): %s", e
                 )
             except (ConnectionError, OSError, KeyboardInterrupt) as e:
                 self.logger.warning(
-                    f"Connection error during WebDriver quit (ignoring): {e}"
+                    "Connection error during WebDriver quit (ignoring): %s", e
                 )
                 self.driver = None  # Mark as closed even if quit failed
             except Exception as e:
                 self.logger.warning(
-                    f"Unexpected error during WebDriver quit (ignoring): {e}"
+                    "Unexpected error during WebDriver quit (ignoring): %s", e
                 )
                 self.driver = None  # Mark as closed even if quit failed
 
@@ -1265,49 +1203,43 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     # --- Configuration for this specific run ---
-    example_ticker = "BYBIT:ETHUSDT.P"  # Or override the default
-    desired_tf = "5"  # Or override the default
-    run_headless = True
-    # chart_id_override = "YOUR_SPECIFIC_CHART_ID" # Optional
+    EXAMPLE_TICKER = "BYBIT:ETHUSDT.P"  # Or override the default
+    DESIRED_TF = "5"  # Or override the default
+    RUN_HEADLESS = True
+    # CHART_ID_OVERRIDE = "YOUR_SPECIFIC_CHART_ID" # Optional
 
     logger.info(
-        f"--- Starting TradingView Scraper for {example_ticker} ({desired_tf}) ---"
+        "--- Starting TradingView Scraper for %s (%s) ---", EXAMPLE_TICKER, DESIRED_TF
     )
-
-    raw_link = None
-    image_url = None
 
     try:
         # Instantiate the scraper, potentially overriding defaults if needed
         # Defaults from __init__ are used if not specified here.
         with TradingViewScraper(
-            headless=run_headless
-            # default_ticker=example_ticker, # Example of overriding
-            # default_interval=desired_tf,
-            # chart_page_id=chart_id_override
+            headless=RUN_HEADLESS
         ) as scraper:
-            logger.info(f"Attempting to capture screenshot link...")
+            logger.info("Attempting to capture screenshot link...")
             # Call get_screenshot_link with the specific ticker/interval for this run
             raw_link = scraper.get_screenshot_link(
-                ticker=example_ticker, interval=desired_tf
+                ticker=EXAMPLE_TICKER, interval=DESIRED_TF
             )
 
             if raw_link:
-                logger.info(f"Raw clipboard data received: {raw_link}")
+                logger.info("Raw clipboard data received: %s", raw_link)
                 image_url = TradingViewScraper.convert_link_to_image_url(raw_link)
                 if image_url and image_url != raw_link:
-                    logger.info(f"Converted image link: {image_url}")
-                    print(f"\\nSuccess! Final Image Link:")
+                    logger.info("Converted image link: %s", image_url)
+                    print("\\nSuccess! Final Image Link:")
                     print(image_url)
                 elif image_url == raw_link:
                     logger.warning(
                         "Received link did not appear to be a standard share link or conversion failed."
                     )
-                    print(f"\\nReceived link (no conversion applied):")
+                    print("\\nReceived link (no conversion applied):")
                     print(raw_link)
                 else:
                     logger.error("Conversion returned None unexpectedly.")
-                    print(f"\\nReceived link (conversion failed):")
+                    print("\\nReceived link (conversion failed):")
                     print(raw_link)
 
             else:
@@ -1315,15 +1247,15 @@ if __name__ == "__main__":
                 print("\\nOperation failed: Could not retrieve link from clipboard.")
 
     except TradingViewScraperError as e:
-        logger.error(f"Scraping failed: {e}")
+        logger.error("Scraping failed: %s", e)
         print(f"\\nOperation failed: {e}")
     except ValueError as e:
-        logger.error(f"Configuration error: {e}")
+        logger.error("Configuration error: %s", e)
         print(f"\\nOperation failed due to configuration error: {e}")
     except Exception as e:
         logger.error(
-            f"An unexpected error occurred during the process: {e}", exc_info=True
+            "An unexpected error occurred during the process: %s", e, exc_info=True
         )
-        print(f"\\nAn unexpected error occurred. Check logs for details.")
+        print("\\nAn unexpected error occurred. Check logs for details.")
 
-    logger.info(f"--- TradingView Scraper finished ---")
+    logger.info("--- TradingView Scraper finished ---")
