@@ -348,8 +348,8 @@ The following environment variables can be set to configure the scraper:
 - `TRADINGVIEW_SESSION_ID`: Your TradingView session ID (required)
 - `TRADINGVIEW_SESSION_ID_SIGN`: Your TradingView session ID signature (required)
 - `MCP_SCRAPER_HEADLESS`: Run browser in headless mode (default: `True`)
-- `MCP_SCRAPER_WINDOW_WIDTH`: Browser window width (default: `1920`)
-- `MCP_SCRAPER_WINDOW_HEIGHT`: Browser window height (default: `1080`)
+- `MCP_SCRAPER_WINDOW_WIDTH`: Browser window width (default: `1400`)
+- `MCP_SCRAPER_WINDOW_HEIGHT`: Browser window height (default: `1400`)
 - `MCP_SCRAPER_USE_SAVE_SHORTCUT`: Use clipboard image capture instead of screenshot links (default: `True`)
 - `MCP_SCRAPER_CHART_PAGE_ID`: Custom chart page ID (optional)
 

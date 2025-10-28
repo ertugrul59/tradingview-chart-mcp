@@ -58,8 +58,8 @@ def get_scraper_config():
     """Get scraper configuration from environment variables."""
     return {
         "headless": os.getenv("MCP_SCRAPER_HEADLESS", "True").lower() == "true",
-        "window_width": int(os.getenv("MCP_SCRAPER_WINDOW_WIDTH", "1920")),
-        "window_height": int(os.getenv("MCP_SCRAPER_WINDOW_HEIGHT", "1080")),
+        "window_width": int(os.getenv("MCP_SCRAPER_WINDOW_WIDTH", "1400")),
+        "window_height": int(os.getenv("MCP_SCRAPER_WINDOW_HEIGHT", "1400")),
         "use_save_shortcut": os.getenv("MCP_SCRAPER_USE_SAVE_SHORTCUT", "True").lower()
         == "true",
         "chart_page_id": os.getenv("MCP_SCRAPER_CHART_PAGE_ID", ""),
@@ -147,7 +147,7 @@ class OptimizedTradingViewMCPServer:
                 self.logger.info(f"   Creating browser {i+1}/{self.max_concurrent}...")
                 scraper = TradingViewScraper(
                     headless=self.config.get("headless", True),
-                    window_size=f"{self.config.get('window_width', 1920)},{self.config.get('window_height', 1080)}",
+                    window_size=f"{self.config.get('window_width', 1400)},{self.config.get('window_height', 1400)}",
                     chart_page_id=self.config.get("chart_page_id")
                     or TradingViewScraper.DEFAULT_CHART_PAGE_ID,
                     use_save_shortcut=self.config.get("use_save_shortcut", True),

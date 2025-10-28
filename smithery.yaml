@@ -21,11 +21,11 @@ startCommand:
         description: Run scraper in headless mode
       mcpScraperWindowWidth:
         type: number
-        default: 1920
+        default: 1400
         description: Browser window width
       mcpScraperWindowHeight:
         type: number
-        default: 1080
+        default: 1400
         description: Browser window height
       mcpScraperChartPageId:
         type: string
@@ -39,6 +39,6 @@ startCommand:
     tradingviewSessionId: abc123sessionid
     tradingviewSessionIdSign: def456signature
     mcpScraperHeadless: true
-    mcpScraperWindowWidth: 1920
-    mcpScraperWindowHeight: 1080
+    mcpScraperWindowWidth: 1400
+    mcpScraperWindowHeight: 1400
     mcpScraperChartPageId: ""

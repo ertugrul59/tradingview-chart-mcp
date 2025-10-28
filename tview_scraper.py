@@ -68,7 +68,7 @@ class TradingViewScraper:
     SESSION_ID_ENV_VAR = "TRADINGVIEW_SESSION_ID"
     SESSION_ID_SIGN_ENV_VAR = "TRADINGVIEW_SESSION_ID_SIGN"
     CLIPBOARD_READ_SCRIPT = "return navigator.clipboard.readText();"
-    DEFAULT_WINDOW_SIZE = "1920,1080"
+    DEFAULT_WINDOW_SIZE = "1400,1400"
     MAX_CLIPBOARD_ATTEMPTS = 5  # Number of retries for clipboard read
     CLIPBOARD_RETRY_INTERVAL = 1  # seconds between attempts (traditional method)
     # Ultra-optimized intelligent waiting - much faster than previous versions
@@ -1215,9 +1215,7 @@ if __name__ == "__main__":
     try:
         # Instantiate the scraper, potentially overriding defaults if needed
         # Defaults from __init__ are used if not specified here.
-        with TradingViewScraper(
-            headless=RUN_HEADLESS
-        ) as scraper:
+        with TradingViewScraper(headless=RUN_HEADLESS) as scraper:
             logger.info("Attempting to capture screenshot link...")
             # Call get_screenshot_link with the specific ticker/interval for this run
             raw_link = scraper.get_screenshot_link(
