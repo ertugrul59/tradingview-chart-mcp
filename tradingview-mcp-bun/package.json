@@ -1,0 +1,19 @@
+{
+  "name": "tradingview-mcp-bun",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.0.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.1",
+    "dotenv": "^17.2.3",
+    "playwright": "^1.57.0",
+    "zod": "^4.2.1"
+  }
+}
