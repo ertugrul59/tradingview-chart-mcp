@@ -1,10 +1,12 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ertugrul59-tradingview-chart-mcp-badge.png)](https://mseep.ai/app/ertugrul59-tradingview-chart-mcp)
-
 # MCP Server - TradingView Chart Image Scraper
+
+[![MseeP.ai Security Assessment](https://mseep.net/pr/ertugrul59-tradingview-chart-mcp-badge.png)](https://mseep.ai/app/ertugrul59-tradingview-chart-mcp)
 
 **🚀 Now with Browser Pooling Optimization for 70-80% Better Concurrent Performance!**
 
 This MCP server provides tools to fetch TradingView chart images based on ticker and interval with advanced browser pooling for maximum concurrent performance.
+
+![Demo — AI analyzing a BTCUSDT daily chart via MCP](https://github.com/user-attachments/assets/d9f09bd8-6a4d-4acd-a8aa-4c3eadcea2b3)
 
 ## 🔥 Performance Optimizations
 
