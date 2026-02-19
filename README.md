@@ -1,6 +1,6 @@
 # MCP Server - TradingView Chart Image Scraper
 
-[![MseeP.ai Security Assessment](https://mseep.net/pr/ertugrul59-tradingview-chart-mcp-badge.png)](https://mseep.ai/app/ertugrul59-tradingview-chart-mcp)
+<a href="https://mseep.ai/app/ertugrul59-tradingview-chart-mcp"><img src="https://mseep.net/pr/ertugrul59-tradingview-chart-mcp-badge.png" alt="MseeP.ai Security Assessment" width="200"></a>
 
 **🚀 Now with Browser Pooling Optimization for 70-80% Better Concurrent Performance!**
 
