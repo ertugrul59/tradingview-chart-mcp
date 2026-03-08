@@ -1,0 +1,13 @@
+.venv
+venv
+__pycache__
+*.pyc
+.git
+.env
+.env.*
+.pytest_cache
+node_modules
+*.md
+Dockerfile
+.dockerignore
+smithery.yaml

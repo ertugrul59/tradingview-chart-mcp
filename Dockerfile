@@ -30,5 +30,5 @@ ENV PATH="/usr/bin/chromium-driver:${PATH}"
 
 # Expose stdio interface
 # Default command
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["python", "main_optimized.py"]
 CMD []

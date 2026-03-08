@@ -250,10 +250,16 @@ class TradingViewScraper:
         }
         chrome_options.add_experimental_option("prefs", prefs)
 
-        # Use Selenium 4's built-in driver management (no need for webdriver-manager)
+        chrome_bin = os.environ.get("CHROME_BIN")
+        if chrome_bin:
+            chrome_options.binary_location = chrome_bin
+
         try:
-            # ChromeService() without path uses Selenium Manager to auto-download driver
-            service = ChromeService()
+            service_kwargs = {}
+            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
+            if chrome_bin and os.path.exists(chromedriver_path):
+                service_kwargs["executable_path"] = chromedriver_path
+            service = ChromeService(**service_kwargs)
             self.driver = webdriver.Chrome(
                 service=service,
                 options=chrome_options,

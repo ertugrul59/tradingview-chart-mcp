@@ -525,6 +525,11 @@ if __name__ == "__main__":
             )
             mcp_server.settings.host = args.host
             mcp_server.settings.port = args.port
+            if args.host == "0.0.0.0":
+                from mcp.server.transport_security import TransportSecuritySettings
+                mcp_server.settings.transport_security = TransportSecuritySettings(
+                    enable_dns_rebinding_protection=False
+                )
             mcp_server.run(transport="streamable-http")
         else:
             mcp_server.run(transport="stdio")
