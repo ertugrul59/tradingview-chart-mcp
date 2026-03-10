@@ -141,7 +141,6 @@ class TradingViewScraper:
 
         # Faster page loading
         chrome_options.add_argument("--aggressive-cache-discard")
-        chrome_options.add_argument("--memory-pressure-off")
 
         # Add clipboard permissions for image reading
         chrome_options.add_argument("--enable-clipboard-read-write")

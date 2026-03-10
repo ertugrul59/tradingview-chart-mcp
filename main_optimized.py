@@ -122,15 +122,17 @@ class OptimizedTradingViewMCPServer:
     - 3 concurrent: ~2.5-3.5s each (70-80% faster)
     """
 
+    MAX_REQUESTS_PER_BROWSER = 20
+
     def __init__(self, max_concurrent: int = 4, config: dict = None):
         self.max_concurrent = max_concurrent
         self.config = config or {}
         self.browser_pool = []
+        self.browser_request_counts: dict[int, int] = {}
         self.browser_lock = threading.Lock()
         self.semaphore = asyncio.Semaphore(max_concurrent)
         self.logger = logging.getLogger(__name__)
 
-        # Performance tracking
         self.request_count = 0
         self.total_request_time = 0.0
 
@@ -185,7 +187,34 @@ class OptimizedTradingViewMCPServer:
             return None
 
     def _return_browser(self, scraper: TradingViewScraper):
-        """Return browser to pool for reuse"""
+        """Return browser to pool, rotating if it has served too many requests."""
+        browser_id = id(scraper)
+        count = self.browser_request_counts.get(browser_id, 0) + 1
+        self.browser_request_counts[browser_id] = count
+
+        if count >= self.MAX_REQUESTS_PER_BROWSER:
+            self.logger.info(
+                "♻️ Rotating browser after %d requests to reclaim memory", count
+            )
+            self.browser_request_counts.pop(browser_id, None)
+            try:
+                scraper.close()
+            except Exception as e:
+                self.logger.warning("Error closing rotated browser: %s", e)
+            try:
+                new_scraper = TradingViewScraper(
+                    headless=self.config.get("headless", True),
+                    window_size=f"{self.config.get('window_width', 1400)},{self.config.get('window_height', 1400)}",
+                    chart_page_id=self.config.get("chart_page_id")
+                    or TradingViewScraper.DEFAULT_CHART_PAGE_ID,
+                    use_save_shortcut=self.config.get("use_save_shortcut", True),
+                )
+                new_scraper._setup_driver()
+                scraper = new_scraper
+            except Exception as e:
+                self.logger.error("Failed to create replacement browser: %s", e)
+                return
+
         with self.browser_lock:
             self.browser_pool.append(scraper)
 
