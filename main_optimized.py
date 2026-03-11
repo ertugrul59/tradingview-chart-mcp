@@ -215,6 +215,11 @@ class OptimizedTradingViewMCPServer:
                 self.logger.error("Failed to create replacement browser: %s", e)
                 return
 
+        try:
+            scraper.driver.get("about:blank")
+        except Exception as e:
+            self.logger.warning("Failed to navigate to about:blank: %s", e)
+
         with self.browser_lock:
             self.browser_pool.append(scraper)
 
